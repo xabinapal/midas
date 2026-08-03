@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  The application runs on SvelteKit and Cloudflare Workers with D1, Workers KV,
+  structured logging, and optional internal authentication. TypeScript is strict.
+  Canonical specs are the source of truth and active changes describe proposed
+  requirement changes. Review both before changing behavior.
+
+rules:
+  proposal:
+    - Identify every directly or indirectly affected capability.
+    - Separate requirement changes from implementation details.
+    - State meaningful non-goals for security-sensitive or cross-cutting work.
+  specs:
+    - Keep requirements durable, behavior-focused, and testable.
+    - Do not encode temporary initialization, repository-copying, or placeholder-removal concerns.
+    - Do not invent behavior without implementation, test, configuration, documentation, or explicit product evidence.
+  design:
+    - Explain cross-capability ownership and security or data trade-offs.
+    - Record why rejected alternatives were not selected.
+  tasks:
+    - Include specification alignment, tests, and strict validation.
+    - Order tasks so requirement changes are understood before implementation begins.

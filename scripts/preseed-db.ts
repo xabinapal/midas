@@ -1,0 +1,19 @@
+import { getPlatformProxy } from "wrangler";
+import { preseedDatabase } from "./database/preseed.ts";
+import { createDatabase, runMigrations } from "../src/lib/server/database/index.ts";
+
+const proxy = await getPlatformProxy({ configPath: "wrangler.jsonc", remoteBindings: false });
+
+try {
+	const db = createDatabase(proxy.env.DB);
+	try {
+		await runMigrations(db);
+		const result = await preseedDatabase(db);
+
+		console.log(`Development database preseeded: ${result.users} user (${result.username}).`);
+	} finally {
+		await db.destroy();
+	}
+} finally {
+	await proxy.dispose();
+}

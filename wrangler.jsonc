@@ -1,0 +1,29 @@
+{
+	"name": "sveltekeleton",
+	"compatibility_date": "2026-08-03",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": { "enabled": true },
+
+	"vars": {
+		"AUTH_ENABLED": "false",
+	},
+
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare",
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "sveltekeleton",
+			"database_id": "your-database-id-will-be-here",
+		},
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "your-kv-namespace-id-will-be-here",
+		},
+	],
+}

@@ -1,0 +1,30 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "SvelteKit: VS Code breakpoints",
+			"type": "node-terminal",
+			"request": "launch",
+			"command": "mise run dev"
+		},
+		{
+			"name": "SvelteKit: Chrome client breakpoints",
+			"type": "chrome",
+			"request": "launch",
+			"url": "http://localhost:5173",
+			"webRoot": "${workspaceFolder}",
+			"userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile"
+		},
+		{
+			"name": "SvelteKit: Chrome breakpoints",
+			"type": "node-terminal",
+			"request": "launch",
+			"command": "mise run debug-chrome",
+			"serverReadyAction": {
+				"pattern": "Local:\\s+(https?://localhost:\\d+)",
+				"action": "startDebugging",
+				"name": "SvelteKit: Chrome client breakpoints"
+			}
+		}
+	]
+}

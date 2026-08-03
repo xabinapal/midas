@@ -1,0 +1,22 @@
+# Dependency directories
+node_modules/
+
+# SvelteKit build
+.svelte-kit/
+
+# Wrangler build
+.wrangler/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Lock files
+package-lock.json
+
+# OS files
+.DS_Store
+
+# VS Code Chrome debugging profile
+.vscode/chrome-debug-profile/

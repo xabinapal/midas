@@ -1,0 +1,86 @@
+[settings]
+experimental = true
+
+[tools]
+node = "26.5.1"
+npm = "12.0.2"
+
+[hooks]
+enter = [
+    "mise run init",
+]
+
+[tasks.init]
+description = "install mise tools and npm dependencies"
+run = [
+    "mise install",
+    "npm install",
+]
+
+[tasks.dev]
+description = "start the vite dev server"
+run = "npm run dev"
+
+[tasks.debug-chrome]
+description = "start the dev server with the Node inspector for Chrome"
+run = "npm run dev:debug-chrome"
+
+[tasks.build]
+description = "build the application for production"
+run = "npm run build"
+
+[tasks.preview]
+description = "preview the production build locally"
+run = "npm run preview"
+
+[tasks.deploy]
+description = "build and deploy to cloudflare workers"
+run = "npm run deploy"
+
+[tasks.lint]
+description = "run prettier checks and eslint"
+run = "npm run lint"
+
+[tasks.design-lint]
+description = "validate the design contract"
+run = "npm run design:lint"
+
+[tasks.format]
+description = "format the codebase with prettier"
+run = "npm run format"
+
+[tasks.check]
+description = "run svelte-check type checking"
+run = "npm run check"
+
+[tasks.test]
+description = "run all test suites"
+run = ["mise run test-unit", "mise run test-component", "mise run test-integration"]
+
+[tasks.test-unit]
+description = "run node unit tests"
+run = "npm run test:unit"
+
+[tasks.test-component]
+description = "run svelte component tests"
+run = "npm run test:component"
+
+[tasks.test-integration]
+description = "run isolated local integration tests"
+run = "npm run test:integration"
+
+[tasks.cache-reset]
+description = "delete local application cache entries from workers kv"
+run = "npm run cache:reset"
+
+[tasks.db-migrate]
+description = "run database migrations against the local d1 instance"
+run = "npm run db:migrate"
+
+[tasks.db-preseed]
+description = "wipe and preseed the local d1 database with development data"
+run = "npm run db:preseed"
+
+[tasks.db-reset]
+description = "wipe the local d1 database and re-apply migrations from scratch"
+run = "npm run db:reset"
