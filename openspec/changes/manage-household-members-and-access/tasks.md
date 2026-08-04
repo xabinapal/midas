@@ -15,7 +15,7 @@
 ## 3. Authentication and Administration Services
 
 - [x] 3.1 Implement injected household/member services and repositories for creation, lifecycle, default weights, safe projections, and historical retention.
-- [ ] 3.2 Implement one-time bootstrap with a server-only credential, replay-safe household/two-or-more-member/admin creation, generic failure, and data-state shutdown.
+- [x] 3.2 Implement one-time bootstrap with a server-only credential, replay-safe household/two-or-more-member/admin creation, generic failure, and data-state shutdown.
 - [x] 3.3 Replace JWT issuance/validation with random bearer tokens, SHA-256 session digests, eight-hour expiry, four-hour rotation, active-user checks, and immediate revocation.
 - [x] 3.4 Implement household-administrator authorization only for user, credential, and cross-user session operations while preserving equal financial access.
 - [x] 3.5 Implement own-password change, administrator reset, forced password change, session enumeration/revocation, one-time operator recovery, last-administrator protection, and stable structured security logging without secrets.
