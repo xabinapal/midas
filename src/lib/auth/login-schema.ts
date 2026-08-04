@@ -13,11 +13,11 @@ export const loginSchema = z.object({
 		.pipe(
 			z
 				.string()
-				.min(3, "Username must contain at least 3 characters")
-				.max(64, "Username must contain at most 64 characters")
-				.regex(USERNAME_PATTERN, "Username contains unsupported characters"),
+				.min(3, "El nombre de usuario debe tener al menos 3 caracteres")
+				.max(64, "El nombre de usuario no puede superar los 64 caracteres")
+				.regex(USERNAME_PATTERN, "El nombre de usuario contiene caracteres no permitidos"),
 		),
-	password: z.string().min(1, "Password is required").max(128, "Password must contain at most 128 characters"),
+	password: z.string().min(1, "Introduce la contraseña").max(128, "La contraseña no puede superar los 128 caracteres"),
 });
 
 export type LoginData = z.infer<typeof loginSchema>;

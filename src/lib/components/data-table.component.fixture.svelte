@@ -10,9 +10,9 @@
 	let { rows }: { rows: PersonRow[] } = $props();
 
 	const columns: DataTableColumn<PersonRow>[] = [
-		{ key: "name", label: "Name" },
-		{ key: "age", label: "Age", align: "end" },
+		{ key: "name", label: "Nombre" },
+		{ key: "age", label: "Edad", align: "end" },
 	];
 </script>
 
-<DataTable caption="People" {columns} {rows} />
+<DataTable caption="Personas" {columns} {rows} />

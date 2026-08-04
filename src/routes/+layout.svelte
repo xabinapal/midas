@@ -26,6 +26,4 @@
 	<link rel="manifest" href="{APP_BASE_URL}/site.webmanifest" />
 </svelte:head>
 
-<main class="mx-auto max-w-screen-lg p-4">
-	{@render children()}
-</main>
+{@render children()}

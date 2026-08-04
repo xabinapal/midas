@@ -1,50 +1,35 @@
 ---
 version: alpha
 name: Midas
-description: A compact, trustworthy, mobile-first household finance interface inspired by Wise's friendly fintech clarity and adapted to Midas with warm sage surfaces, deep forest actions, restrained gold accents, and independent financial-status colors.
+description: A compact, trustworthy, mobile-first household finance interface inspired by Wise's friendly fintech clarity and adapted to Midas with warm dark sage surfaces, forest-green actions, restrained gold accents, and independent financial-status colors.
 colors:
-  primary: "#1f5b49"
-  on-primary: "#ffffff"
-  primary-active: "#18483a"
+  primary: "#83c8aa"
+  on-primary: "#10231b"
+  primary-active: "#83c8aa"
   secondary: "#d4a72c"
   on-secondary: "#211a07"
-  base: "#fbfaf6"
-  base-soft: "#f1f3ed"
-  surface: "#ffffff"
-  surface-raised: "#ffffff"
-  text: "#17201d"
-  text-soft: "#405048"
-  text-muted: "#66736c"
-  border: "#cbd3cb"
-  divider: "#dfe4dd"
-  focus: "#2f75d6"
-  info: "#286f8f"
-  success: "#2f7d4a"
-  warning: "#a85f08"
-  error: "#b33a3a"
-  planned: "#6f6489"
-  paid: "#286f8f"
-  unpaid: "#955005"
-  pending: "#85611b"
-  partial: "#a64f16"
-  settled: "#2f7d4a"
-  disabled-surface: "#e5e8e3"
-  disabled-text: "#58635c"
-  dark-base: "#101512"
-  dark-base-soft: "#171e1a"
-  dark-surface: "#202923"
-  dark-text: "#f1f4f0"
-  dark-text-soft: "#bdc7c0"
-  dark-border: "#3a463e"
-  dark-primary: "#83c8aa"
-  dark-on-primary: "#10231b"
-  dark-planned: "#c5b9e8"
-  dark-paid: "#79c4df"
-  dark-unpaid: "#f2b66d"
-  dark-pending: "#e2c56b"
-  dark-partial: "#f1a171"
-  dark-settled: "#78c995"
-  dark-error: "#ff9b9b"
+  base: "#101512"
+  base-soft: "#171e1a"
+  surface: "#202923"
+  surface-raised: "#202923"
+  text: "#f1f4f0"
+  text-soft: "#bdc7c0"
+  text-muted: "#bdc7c0"
+  border: "#3a463e"
+  divider: "#3a463e"
+  focus: "#79c4df"
+  info: "#79c4df"
+  success: "#78c995"
+  warning: "#f2b66d"
+  error: "#ff9b9b"
+  planned: "#c5b9e8"
+  paid: "#79c4df"
+  unpaid: "#f2b66d"
+  pending: "#e2c56b"
+  partial: "#f1a171"
+  settled: "#78c995"
+  disabled-surface: "#171e1a"
+  disabled-text: "#bdc7c0"
 typography:
   page-title:
     fontFamily: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
@@ -106,8 +91,8 @@ spacing:
   section: 48px
 elevation:
   flat: none
-  raised: 0 1px 2px rgba(23, 32, 29, 0.08)
-  overlay: 0 12px 32px rgba(23, 32, 29, 0.16)
+  raised: 0 1px 2px rgb(0 0 0 / 24%)
+  overlay: 0 12px 32px rgb(0 0 0 / 40%)
 components:
   app-shell:
     backgroundColor: "{colors.base}"
@@ -282,71 +267,12 @@ components:
     textColor: "{colors.error}"
     rounded: "{rounded.pill}"
     padding: 4px 10px
-  dark-app-shell:
-    backgroundColor: "{colors.dark-base}"
-    textColor: "{colors.dark-text}"
-    typography: "{typography.body}"
-  dark-panel:
-    backgroundColor: "{colors.dark-surface}"
-    textColor: "{colors.dark-text}"
-    rounded: "{rounded.lg}"
-    padding: "{spacing.md}"
-  dark-navigation:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-text-soft}"
-    typography: "{typography.caption}"
-    height: 48px
-  dark-divider:
-    backgroundColor: "{colors.dark-border}"
-    textColor: "{colors.dark-text}"
-    height: 1px
-  dark-button-primary:
-    backgroundColor: "{colors.dark-primary}"
-    textColor: "{colors.dark-on-primary}"
-    typography: "{typography.label}"
-    rounded: "{rounded.xl}"
-    height: 48px
-  dark-status-planned:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-planned}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  dark-status-paid:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-paid}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  dark-status-unpaid:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-unpaid}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  dark-status-pending:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-pending}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  dark-status-partial:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-partial}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  dark-status-settled:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-settled}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
-  dark-status-error:
-    backgroundColor: "{colors.dark-base-soft}"
-    textColor: "{colors.dark-error}"
-    rounded: "{rounded.pill}"
-    padding: 4px 10px
 ---
 
 ## Direction
 
 Midas is a calm household tool, not a trading terminal and not a decorative
-banking landing page. The visual system uses warm sage and cream surfaces,
+banking landing page. The visual system uses warm dark sage surfaces,
 compact hierarchy, large touch targets, and strong numerical alignment. It
 should feel trustworthy enough for corrections and password administration,
 but friendly enough for daily expense entry.
@@ -359,8 +285,9 @@ adapts those principles rather than reproducing Wise branding or trade dress.
 
 ## Deliberate Deviations
 
-- Replace Wise's vivid lime with deep forest primary actions. The Midas gold
-  accent is secondary and must not be used as a universal status color.
+- Replace Wise's vivid lime with forest-green primary actions on dark sage
+  surfaces. The Midas gold accent is secondary and must not be used as a
+  universal status color.
 - Replace proprietary Wise Sans and oversized weight-900 marketing headlines
   with the dependency-free system stack and compact application titles.
 - Reduce canonical card radius from 24px to 16px for dense lists; reserve 24px
@@ -369,10 +296,10 @@ adapts those principles rather than reproducing Wise branding or trade dress.
   states. Primary, success, paid, and settled must remain distinct roles.
 - Prefer semantic lists, rows, and amount blocks over charts. Use a chart only
   when it answers a question more clearly than text and amounts.
-- Support dark mode through equivalent semantic tokens rather than inverting
-  arbitrary colors. The initial theme follows the operating-system preference.
-  In dark mode, status names keep their semantic hue while surfaces remap to the
-  dark base ladder and all text/indicator combinations retain AA contrast.
+- Use a single dark theme. No light variant is provided; the application does
+  not follow `prefers-color-scheme`. Status names keep their semantic hue
+  against dark sage surfaces and all text/indicator combinations retain AA
+  contrast.
 
 ## Composition
 
@@ -420,10 +347,11 @@ icon. The primary status vocabulary is:
 
 - `Previsto` or `Estimado` for planned values.
 - `Sin pagar`, `Pago parcial`, and `Pagado` for payment progress.
-- `Pendiente de compensar`, `Compensado parcialmente`, and `Compensado` for
-  settlement progress.
+- `Pendiente de compensar`, `Compensado parcialmente`, `Compensado`, and
+  `No requiere compensación` for settlement progress.
 - `Vencido` for an unpaid expense past its due date.
-- `Anulado` for a posted record reversed by a corrective operation.
+- `Anulado` for a voided record or cancelled occurrence.
+- `Revertido` for a posted record reversed by a corrective operation.
 
 ## Feedback And States
 

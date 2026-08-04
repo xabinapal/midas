@@ -16,27 +16,27 @@ describe("DataTable", () => {
 	it("provides an accessible name and paginates rows", async () => {
 		const user = userEvent.setup();
 		render(DataTableFixture, { rows });
-		const table = screen.getByRole("table", { name: "People" });
+		const table = screen.getByRole("table", { name: "Personas" });
 
 		expect(within(table).getAllByRole("row")).toHaveLength(6);
 		expect(screen.queryByText("Radia")).toBeNull();
 
-		await user.click(screen.getByRole("button", { name: "Next" }));
+		await user.click(screen.getByRole("button", { name: "Siguiente" }));
 		expect(screen.getByText("Radia")).toBeTruthy();
-		expect(screen.getByText("Page 2 of 2")).toBeTruthy();
+		expect(screen.getByText("Página 2 de 2")).toBeTruthy();
 	});
 
 	it("wires filtering and accessible sort state", async () => {
 		const user = userEvent.setup();
 		render(DataTableFixture, { rows });
 
-		await user.type(screen.getByRole("searchbox", { name: "Search" }), "barbara");
+		await user.type(screen.getByRole("searchbox", { name: "Buscar" }), "barbara");
 		expect(screen.getByText("Barbara")).toBeTruthy();
 		expect(screen.queryByText("Ada")).toBeNull();
-		expect(screen.getByText("1 row")).toBeTruthy();
+		expect(screen.getByText("1 fila")).toBeTruthy();
 
-		const ageHeader = screen.getByRole("columnheader", { name: "Age" });
-		await user.click(within(ageHeader).getByRole("button", { name: "Age" }));
+		const ageHeader = screen.getByRole("columnheader", { name: "Edad" });
+		await user.click(within(ageHeader).getByRole("button", { name: "Edad" }));
 		expect(ageHeader.getAttribute("aria-sort")).toBe("ascending");
 		expect(document.querySelectorAll("[aria-sort]")).toHaveLength(1);
 	});
@@ -44,13 +44,13 @@ describe("DataTable", () => {
 	it("disables pagination when reactive rows become empty", async () => {
 		const user = userEvent.setup();
 		const view = render(DataTableFixture, { rows });
-		await user.click(screen.getByRole("button", { name: "Next" }));
+		await user.click(screen.getByRole("button", { name: "Siguiente" }));
 
 		await view.rerender({ rows: [] });
 
-		expect(screen.getByText("No matching rows")).toBeTruthy();
-		expect(screen.getByText("Page 0 of 0")).toBeTruthy();
-		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Previous" }).disabled).toBe(true);
-		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Next" }).disabled).toBe(true);
+		expect(screen.getByText("No hay filas coincidentes")).toBeTruthy();
+		expect(screen.getByText("Página 0 de 0")).toBeTruthy();
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Anterior" }).disabled).toBe(true);
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Siguiente" }).disabled).toBe(true);
 	});
 });

@@ -26,7 +26,7 @@
 ## 4. Experience Verification
 
 - [ ] 4.1 Add component and route tests for Spanish formatting, independent statuses, traceable totals, future periods, corrections, arbitrary member counts, loading/error/empty states, and URL restoration.
-- [ ] 4.2 Manually verify action hierarchy, numerical alignment, no decorative chart dependence, narrow mobile layouts, tablet/desktop density, light/dark themes, keyboard operation, and WCAG 2.2 AA behavior.
+- [ ] 4.2 Manually verify action hierarchy, numerical alignment, no decorative chart dependence, narrow mobile layouts, tablet/desktop density, keyboard operation, and WCAG 2.2 AA behavior.
 - [ ] 4.3 Verify aggregate query plans and bounded response sizes against representative preseed and larger generated local datasets without touching remote storage.
 
 ## 5. Final Verification

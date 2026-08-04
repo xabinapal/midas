@@ -95,9 +95,9 @@ A multi-page wizard was rejected because it slows common entry and makes correct
 
 Payment status (`Sin pagar`, `Pago parcial`, `Pagado`) and settlement status (`No requiere compensación`, `Pendiente de compensar`, `Compensado parcialmente`, `Compensado`) are rendered separately. Planning and due state add independent labels (`Previsto`, `Estimado`, `Vencido`). `Cancelado` is reserved for an expected occurrence stopped before realization; `Anulado` identifies a posted financial record reversed through correction. Color reinforces but never replaces text.
 
-### Follow the operating-system theme initially
+### Use a single dark theme
 
-Both light and dark semantic tokens are defined. The application follows `prefers-color-scheme`; an in-app theme preference is deferred. This preserves existing theme support without adding settings or KV behavior before a need is established.
+The application uses a single dark theme derived from the semantic design contract. No light variant is provided, and the application does not follow `prefers-color-scheme`. This keeps the visual system simple, avoids dual-token maintenance, and produces a calm, focused surface that suits frequent household finance interaction.
 
 ### Keep copy localized at the presentation boundary
 
@@ -127,7 +127,7 @@ Each change may rely only on canonical capabilities plus earlier changes that ha
 ## Migration Plan
 
 1. Obtain review acceptance for the selected Wise-inspired Midas direction and root token contract.
-2. Align the daisyUI light/dark themes and centralized site identity with the accepted tokens.
+2. Align the daisyUI theme and centralized site identity with the accepted tokens.
 3. Build the responsive protected shell, common navigation, period navigator, and shared feedback states.
 4. Convert login, error, and empty/loading states to Spanish and verify long-label behavior.
 5. Replace starter-only content as dependent domain changes become available; do not retain competing component styles.

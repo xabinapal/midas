@@ -1,23 +1,33 @@
 <script lang="ts">
 	import { resolve } from "$app/paths";
+	import { page } from "$app/state";
+	import AppNavigation from "$lib/components/app-navigation.svelte";
 	import { site } from "$lib/site";
 	import type { LayoutProps } from "./$types";
 
 	let { data, children }: LayoutProps = $props();
 </script>
 
-<nav class="navbar mb-4 rounded-box bg-base-200 px-4" aria-label="Primary navigation">
-	<div class="navbar-start">
-		<a class="btn btn-ghost text-lg" href={resolve("/")}>{site.title}</a>
-	</div>
-	<div class="navbar-end gap-2">
-		{#if data.authEnabled && data.user}
-			<span class="hidden text-sm opacity-70 sm:inline">{data.user.username}</span>
-			<a class="btn btn-ghost btn-sm" href={resolve("/logout")}>Log out</a>
-		{:else}
-			<span class="badge badge-ghost">Authentication disabled</span>
-		{/if}
-	</div>
-</nav>
+<div class="min-h-screen bg-[var(--color-app-base)] text-[var(--color-text)]">
+	<AppNavigation currentPath={page.url.pathname} />
 
-{@render children()}
+	<div class="lg:pl-72">
+		<header class="navbar min-h-16 border-b border-[var(--color-divider)] bg-base-100 px-4 sm:px-6 lg:px-8">
+			<div class="navbar-start lg:hidden">
+				<a class="btn btn-ghost min-h-11 px-2 text-xl font-bold text-primary" href={resolve("/")}>{site.title}</a>
+			</div>
+			<div class="navbar-end ml-auto gap-2">
+				{#if data.authEnabled && data.user}
+					<span class="max-w-[40vw] truncate text-sm text-[var(--color-text-soft)]">{data.user.username}</span>
+					<a class="btn btn-ghost min-h-11" href={resolve("/logout")}>Cerrar sesión</a>
+				{:else}
+					<span class="badge badge-ghost min-h-7 whitespace-normal">Autenticación desactivada</span>
+				{/if}
+			</div>
+		</header>
+
+		<main class="mx-auto max-w-5xl px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pb-10">
+			{@render children()}
+		</main>
+	</div>
+</div>

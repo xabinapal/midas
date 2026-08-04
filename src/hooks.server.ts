@@ -85,7 +85,7 @@ export function createRequestHandle({
 				if (event.locals.auth.enabled && !event.locals.user) {
 					const routeKind = protectedRouteKind(event.route.id);
 					if (routeKind === "page") redirect(303, createLoginRedirect(event.url));
-					if (routeKind === "api") error(401, "Authentication required");
+					if (routeKind === "api") error(401, "Autenticación obligatoria");
 				}
 			}
 

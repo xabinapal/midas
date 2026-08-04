@@ -1,6 +1,103 @@
 @import "tailwindcss";
+
 @plugin "daisyui" {
-	themes:
-		light --default,
-		dark --prefersdark;
+	themes: false;
+}
+
+@plugin "daisyui/theme" {
+	name: "midas";
+	default: true;
+	color-scheme: "dark";
+
+	--color-base-100: #202923;
+	--color-base-200: #171e1a;
+	--color-base-300: #3a463e;
+	--color-base-content: #f1f4f0;
+	--color-primary: #83c8aa;
+	--color-primary-content: #10231b;
+	--color-secondary: #d4a72c;
+	--color-secondary-content: #211a07;
+	--color-accent: #d4a72c;
+	--color-accent-content: #211a07;
+	--color-neutral: #bdc7c0;
+	--color-neutral-content: #101512;
+	--color-info: #79c4df;
+	--color-info-content: #101512;
+	--color-success: #78c995;
+	--color-success-content: #101512;
+	--color-warning: #f2b66d;
+	--color-warning-content: #101512;
+	--color-error: #ff9b9b;
+	--color-error-content: #101512;
+
+	--color-app-base: #101512;
+	--color-surface: #202923;
+	--color-surface-raised: #202923;
+	--color-text: #f1f4f0;
+	--color-text-soft: #bdc7c0;
+	--color-text-muted: #bdc7c0;
+	--color-border: #3a463e;
+	--color-divider: #3a463e;
+	--color-focus: #79c4df;
+	--color-primary-active: #83c8aa;
+	--color-disabled-surface: #171e1a;
+	--color-disabled-text: #bdc7c0;
+	--color-status-planned: #c5b9e8;
+	--color-status-estimated: #c5b9e8;
+	--color-status-paid: #79c4df;
+	--color-status-unpaid: #f2b66d;
+	--color-status-pending: #e2c56b;
+	--color-status-payment-partial: #f1a171;
+	--color-status-settlement-partial: #e2c56b;
+	--color-status-settlement-not-required: #bdc7c0;
+	--color-status-settled: #78c995;
+	--color-status-overdue: #ff9b9b;
+	--color-status-cancelled: #bdc7c0;
+	--color-status-reversed: #ff9b9b;
+	--shadow-raised: 0 1px 2px rgb(0 0 0 / 24%);
+	--shadow-overlay: 0 12px 32px rgb(0 0 0 / 40%);
+
+	--radius-selector: 0.5rem;
+	--radius-field: 0.75rem;
+	--radius-box: 1rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 1;
+	--noise: 0;
+}
+
+@layer base {
+	html {
+		background: var(--color-app-base);
+	}
+
+	body {
+		min-width: 20rem;
+		min-height: 100vh;
+		background: var(--color-app-base);
+		color: var(--color-text);
+		font-family:
+			system-ui,
+			-apple-system,
+			BlinkMacSystemFont,
+			"Segoe UI",
+			sans-serif;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			scroll-behavior: auto !important;
+			transition-duration: 0.01ms !important;
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+		}
+	}
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
 }

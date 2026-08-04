@@ -16,17 +16,17 @@ Every user-facing application string SHALL use natural Spanish suitable for Spai
 
 ### Requirement: Authoritative Design Contract
 
-Application screens and components SHALL consume the semantic tokens and component rules defined by the root `DESIGN.md` through the shared daisyUI theme. A component MUST NOT introduce an arbitrary color, typography rule, spacing value, radius, elevation, focus treatment, or financial-status style outside that contract. Light and dark themes SHALL preserve the same semantic roles.
+Application screens and components SHALL consume the semantic tokens and component rules defined by the root `DESIGN.md` through the shared daisyUI theme. A component MUST NOT introduce an arbitrary color, typography rule, spacing value, radius, elevation, focus treatment, or financial-status style outside that contract. The application SHALL use a single dark theme; no light variant is provided and the application SHALL NOT depend on `prefers-color-scheme`.
 
 #### Scenario: New component is styled
 
 - **WHEN** a Midas component requires a visual value
 - **THEN** it SHALL use an existing semantic design token or first extend the reviewed design contract
 
-#### Scenario: Operating system prefers dark mode
+#### Scenario: Application renders with the single theme
 
-- **WHEN** the client requests a dark color scheme
-- **THEN** the application SHALL use the dark semantic token mapping without changing the meaning of actions or statuses
+- **WHEN** the application loads on any device or platform regardless of operating-system color-scheme preference
+- **THEN** it SHALL consistently apply the single dark semantic theme without changing the meaning of actions or statuses
 
 ### Requirement: Mobile-First Application Navigation
 

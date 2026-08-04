@@ -1,8 +1,8 @@
-# sveltekeleton
+# Midas
 
-An opinionated SvelteKit boilerplate for shipping applications to Cloudflare
-Workers. It distills the shared conventions from real, production-deployed
-SvelteKit + Cloudflare apps into a fast, common starting point.
+Midas is a private, mobile-first application for organizing shared household
+expenses and balances. It runs on SvelteKit and Cloudflare Workers with D1 and
+KV storage.
 
 ## Stack
 
@@ -127,7 +127,7 @@ password: development-password
 
 Never use that account or password in production. There is deliberately no
 registration, password reset, user administration, or authorization model in
-the skeleton; applications must add their own controlled user-provisioning
+Midas; later capabilities add their own controlled user-provisioning
 workflow.
 
 ### Protecting routes
@@ -192,7 +192,7 @@ This single switch updates both the robots meta tag and the `robots.txt` route.
 
 ## Database (D1)
 
-The skeleton ships with Cloudflare D1 support through the Kysely ORM, including
+Midas uses Cloudflare D1 through the Kysely ORM, including
 a migrations framework and the internal `users` table. Migrations are written
 in TypeScript using Kysely's schema builder — never raw SQL.
 
@@ -282,7 +282,7 @@ does not expose the PRAGMA metadata needed to return correct column details.
 Before deploying, create a real D1 database and set its id in `wrangler.jsonc`:
 
 ```sh
-mise exec -- npx wrangler d1 create sveltekeleton   # copy the printed database_id
+mise exec -- npx wrangler d1 create midas   # copy the printed database_id
 ```
 
 Replace the `database_id` placeholder in `wrangler.jsonc`, then `mise run deploy`.
@@ -316,8 +316,8 @@ prefix and deleting old keys when they are no longer needed.
 The adapter-cloudflare platform proxy provides a local KV implementation during
 `mise run dev`. Values persist under `.wrangler/` and never touch production KV,
 so the placeholder namespace id in `wrangler.jsonc` is enough for development.
-The starter page demonstrates this with a five-minute cache entry: the first
-request reports a miss and later requests report a hit.
+The isolated cache module and its unit tests demonstrate a five-minute
+read-through entry without exposing development diagnostics in product screens.
 
 Clear local cached values without changing other local KV domains with:
 

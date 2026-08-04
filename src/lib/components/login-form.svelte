@@ -9,13 +9,13 @@
 
 <form method="POST" use:enhance class="flex flex-col gap-4">
 	<label class="fieldset" for="username">
-		<span class="fieldset-legend">Username</span>
+		<span class="fieldset-legend">Nombre de usuario</span>
 		<input
 			id="username"
 			name="username"
 			type="text"
 			autocomplete="username"
-			class="input w-full"
+			class="input min-h-12 w-full"
 			class:input-error={$errors.username}
 			bind:value={$form.username}
 			aria-invalid={$errors.username ? "true" : undefined}
@@ -28,13 +28,13 @@
 	</label>
 
 	<label class="fieldset" for="password">
-		<span class="fieldset-legend">Password</span>
+		<span class="fieldset-legend">Contraseña</span>
 		<input
 			id="password"
 			name="password"
 			type="password"
 			autocomplete="current-password"
-			class="input w-full"
+			class="input min-h-12 w-full"
 			class:input-error={$errors.password}
 			bind:value={$form.password}
 			aria-invalid={$errors.password ? "true" : undefined}
@@ -50,7 +50,7 @@
 		<div class="alert alert-error" role="alert">{$message}</div>
 	{/if}
 
-	<button class="btn btn-primary w-full" disabled={$submitting}>
-		{$submitting ? "Signing in..." : "Sign in"}
+	<button class="btn btn-primary min-h-12 w-full" disabled={$submitting}>
+		{$submitting ? "Iniciando sesión…" : "Iniciar sesión"}
 	</button>
 </form>

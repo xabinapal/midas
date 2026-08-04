@@ -8,8 +8,13 @@ export const load: PageServerLoad = ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: ({ cookies, locals }) => {
-		cookies.delete(SESSION_COOKIE_NAME, { path: "/" });
+	default: ({ cookies, locals, url }) => {
+		cookies.delete(SESSION_COOKIE_NAME, {
+			path: "/",
+			httpOnly: true,
+			sameSite: "lax",
+			secure: url.protocol === "https:",
+		});
 		locals.user = null;
 		redirect(303, "/login");
 	},

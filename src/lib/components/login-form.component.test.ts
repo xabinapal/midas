@@ -14,21 +14,21 @@ const form = {
 		username: { required: true },
 		password: { required: true },
 	},
-	message: "Invalid username or password",
+	message: "El nombre de usuario o la contraseña no son correctos",
 } satisfies SuperValidated<LoginData, string>;
 
 describe("LoginForm", () => {
 	it("renders accessible credential fields", () => {
 		render(LoginForm, { data: form });
 
-		expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Username" }).value).toBe("developer");
-		expect(screen.getByLabelText<HTMLInputElement>("Password").type).toBe("password");
-		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Sign in" }).disabled).toBe(false);
+		expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Nombre de usuario" }).value).toBe("developer");
+		expect(screen.getByLabelText<HTMLInputElement>("Contraseña").type).toBe("password");
+		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Iniciar sesión" }).disabled).toBe(false);
 	});
 
 	it("announces generic credential failures", () => {
 		render(LoginForm, { data: form });
 
-		expect(screen.getByRole("alert").textContent).toContain("Invalid username or password");
+		expect(screen.getByRole("alert").textContent).toContain("El nombre de usuario o la contraseña no son correctos");
 	});
 });

@@ -29,7 +29,7 @@ export const actions: Actions = {
 		const user = await authenticateUser(createUsersRepository(locals.db), form.data.username, form.data.password);
 		if (!user) {
 			form.data.password = "";
-			return message(form, "Invalid username or password", { status: 401 });
+			return message(form, "El nombre de usuario o la contraseña no son correctos", { status: 401 });
 		}
 
 		cookies.set(

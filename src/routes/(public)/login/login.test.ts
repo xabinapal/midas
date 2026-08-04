@@ -118,7 +118,7 @@ describe("login action", () => {
 			status: number;
 		};
 		expect(failure.status).toBe(401);
-		expect(failure.data.form.message).toBe("Invalid username or password");
+		expect(failure.data.form.message).toBe("El nombre de usuario o la contraseña no son correctos");
 		expect(failure.data.form.data.password).toBe("");
 		expect(set).not.toHaveBeenCalled();
 	});

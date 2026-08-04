@@ -9,7 +9,7 @@
 		caption,
 		columns,
 		rows,
-		searchLabel = "Search",
+		searchLabel = "Buscar",
 		initialPageSize = 5,
 	}: {
 		caption: string;
@@ -70,14 +70,14 @@
 			<input
 				type="search"
 				class="input w-full"
-				placeholder="Filter rows..."
+				placeholder="Filtrar filas…"
 				bind:value={$filterValue}
 				oninput={() => pageIndex.set(0)}
 			/>
 		</label>
 
 		<label class="fieldset">
-			<span class="fieldset-legend">Rows per page</span>
+			<span class="fieldset-legend">Filas por página</span>
 			<select class="select" bind:value={$pageSize} onchange={() => pageIndex.set(0)}>
 				<option value={5}>5</option>
 				<option value={10}>10</option>
@@ -131,7 +131,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan={initialColumns.length} class="py-8 text-center opacity-70">No matching rows</td>
+						<td colspan={initialColumns.length} class="py-8 text-center opacity-70">No hay filas coincidentes</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -141,11 +141,11 @@
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<p class="text-sm opacity-70" aria-live="polite">
 			{$filteredRows.length}
-			{$filteredRows.length === 1 ? "row" : "rows"}
+			{$filteredRows.length === 1 ? "fila" : "filas"}
 		</p>
 		<div class="flex items-center gap-3">
 			<span class="text-sm">
-				Page {$pageCount === 0 ? 0 : $pageIndex + 1} of {$pageCount}
+				Página {$pageCount === 0 ? 0 : $pageIndex + 1} de {$pageCount}
 			</span>
 			<div class="join">
 				<button
@@ -154,7 +154,7 @@
 					disabled={$pageCount === 0 || !$hasPreviousPage}
 					onclick={() => pageIndex.update((index) => index - 1)}
 				>
-					Previous
+					Anterior
 				</button>
 				<button
 					type="button"
@@ -162,7 +162,7 @@
 					disabled={$pageCount === 0 || !$hasNextPage}
 					onclick={() => pageIndex.update((index) => index + 1)}
 				>
-					Next
+					Siguiente
 				</button>
 			</div>
 		</div>

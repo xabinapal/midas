@@ -21,8 +21,9 @@ function createLogoutEvent() {
 		kv: undefined,
 		user: { id: "user-1", username: "developer" },
 	};
+	const url = new URL("http://localhost/logout");
 
-	return { cookies, deleteCookie, locals };
+	return { cookies, deleteCookie, locals, url };
 }
 
 async function thrownBy(operation: () => unknown): Promise<unknown> {
@@ -46,14 +47,19 @@ describe("logout route", () => {
 	});
 
 	it("clears the session only when the logout action is submitted", async () => {
-		const { cookies, deleteCookie, locals } = createLogoutEvent();
-		const event = { cookies, locals } as unknown as RequestEvent;
+		const { cookies, deleteCookie, locals, url } = createLogoutEvent();
+		const event = { cookies, locals, url } as unknown as RequestEvent;
 		const action = actions["default"];
 		if (!action) throw new Error("Expected a default logout action");
 
 		const thrown = await thrownBy(() => action(event));
 
-		expect(deleteCookie).toHaveBeenCalledWith(SESSION_COOKIE_NAME, { path: "/" });
+		expect(deleteCookie).toHaveBeenCalledWith(SESSION_COOKIE_NAME, {
+			path: "/",
+			httpOnly: true,
+			sameSite: "lax",
+			secure: false,
+		});
 		expect(locals.user).toBeNull();
 		expect(isRedirect(thrown)).toBe(true);
 		if (!isRedirect(thrown)) throw thrown;
