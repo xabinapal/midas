@@ -40,6 +40,11 @@ describe.sequential("D1 integration", () => {
 				id: "stale-user",
 				username: "stale",
 				password_hash: "not-a-real-hash",
+				household_id: null,
+				member_id: null,
+				is_active: 1,
+				is_administrator: 0,
+				requires_password_change: 0,
 				created_at: "2026-01-01T00:00:00.000Z",
 				updated_at: "2026-01-01T00:00:00.000Z",
 			})
@@ -82,6 +87,11 @@ describe.sequential("D1 integration", () => {
 					id: "duplicate-user",
 					username: DEVELOPMENT_USERNAME,
 					password_hash: "duplicate-hash",
+					household_id: null,
+					member_id: null,
+					is_active: 1,
+					is_administrator: 0,
+					requires_password_change: 0,
 					created_at: "2026-08-03T12:00:00.000Z",
 					updated_at: "2026-08-03T12:00:00.000Z",
 				})

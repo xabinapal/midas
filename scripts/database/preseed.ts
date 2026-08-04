@@ -33,6 +33,11 @@ export async function preseedDatabase(
 			id: createId(),
 			username: DEVELOPMENT_USERNAME,
 			password_hash: await hashPassword(DEVELOPMENT_PASSWORD, salt),
+			household_id: null,
+			member_id: null,
+			is_active: 1,
+			is_administrator: 0,
+			requires_password_change: 0,
 			created_at: timestamp,
 			updated_at: timestamp,
 		})

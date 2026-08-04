@@ -1,14 +1,14 @@
 ## 1. Security and Domain Tests
 
-- [ ] 1.1 Review the user-authentication and relational-database deltas with the household, credential, activity, application-structure, logging, and KV contracts before implementation.
+- [x] 1.1 Review the user-authentication and relational-database deltas with the household, credential, activity, application-structure, logging, and KV contracts before implementation.
 - [ ] 1.2 Write failing unit tests for member lifecycle, default weights, user/member separation, last-administrator protection, and household currency immutability.
 - [ ] 1.3 Write failing unit tests for singleton-gated bootstrap, user creation/disable/reactivation, own-password change, administrator reset, forced rotation, authoritative logout, lost bearer-response recovery, session listing/revocation, generic failures, and sensitive-data exclusion.
 - [ ] 1.4 Write failing tests for append-only activity events, inactive actor preservation, correction links, household scoping, and prohibited audit fields.
 
 ## 2. Relational Model
 
-- [ ] 2.1 Add a replay-safe reversible migration for the singleton bootstrap gate, households and command gates, members, effective member intervals/defaults, versioned user/credential state, revocable sessions, operation roots, activity events, consumed recovery credentials, and required relationships.
-- [ ] 2.2 Update typed database schema and repository interfaces with household-scoped constraints and indexes.
+- [x] 2.1 Add a replay-safe reversible migration for the singleton bootstrap gate, households and command gates, members, effective member intervals/defaults, versioned user/credential state, revocable sessions, operation roots, activity events, consumed recovery credentials, and required relationships.
+- [x] 2.2 Update typed database schema and repository interfaces with household-scoped constraints and indexes.
 - [ ] 2.3 Update local preseed deletion order and representative data for multiple active members, active administrators, a regular user, an inactive historical member, and valid credential hashes.
 - [ ] 2.4 Add local integration tests for migration replay, uniqueness, same-household relationships, command-gate conflicts/lease recovery, different-ID concurrent operations, session digest lookup, and preseed completeness.
 
