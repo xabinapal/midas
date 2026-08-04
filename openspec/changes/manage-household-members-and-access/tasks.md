@@ -2,7 +2,7 @@
 
 - [x] 1.1 Review the user-authentication and relational-database deltas with the household, credential, activity, application-structure, logging, and KV contracts before implementation.
 - [x] 1.2 Write failing unit tests for member lifecycle, default weights, user/member separation, last-administrator protection, and household currency immutability.
-- [ ] 1.3 Write failing unit tests for singleton-gated bootstrap, user creation/disable/reactivation, own-password change, administrator reset, forced rotation, authoritative logout, lost bearer-response recovery, session listing/revocation, generic failures, and sensitive-data exclusion.
+- [x] 1.3 Write failing unit tests for singleton-gated bootstrap, user creation/disable/reactivation, own-password change, administrator reset, forced rotation, authoritative logout, lost bearer-response recovery, session listing/revocation, generic failures, and sensitive-data exclusion.
 - [x] 1.4 Write failing tests for append-only activity events, inactive actor preservation, correction links, household scoping, and prohibited audit fields.
 
 ## 2. Relational Model
@@ -17,8 +17,8 @@
 - [x] 3.1 Implement injected household/member services and repositories for creation, lifecycle, default weights, safe projections, and historical retention.
 - [ ] 3.2 Implement one-time bootstrap with a server-only credential, replay-safe household/two-or-more-member/admin creation, generic failure, and data-state shutdown.
 - [x] 3.3 Replace JWT issuance/validation with random bearer tokens, SHA-256 session digests, eight-hour expiry, four-hour rotation, active-user checks, and immediate revocation.
-- [ ] 3.4 Implement household-administrator authorization only for user, credential, and cross-user session operations while preserving equal financial access.
-- [ ] 3.5 Implement own-password change, administrator reset, forced password change, session enumeration/revocation, one-time operator recovery, last-administrator protection, and stable structured security logging without secrets.
+- [x] 3.4 Implement household-administrator authorization only for user, credential, and cross-user session operations while preserving equal financial access.
+- [x] 3.5 Implement own-password change, administrator reset, forced password change, session enumeration/revocation, one-time operator recovery, last-administrator protection, and stable structured security logging without secrets.
 - [x] 3.6 Implement append-only activity recording in each material operation and safe history queries.
 
 ## 4. Spanish User Workflows
