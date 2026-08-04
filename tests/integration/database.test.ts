@@ -10,6 +10,24 @@ import { initial } from "../../src/lib/server/database/migrations/0001_initial";
 import { runMigrations } from "../../src/lib/server/database/migrator";
 import type { Database } from "../../src/lib/server/database/schema";
 
+const ALL_TABLES = [
+	"consumed_recovery_credentials",
+	"activity_events",
+	"sessions",
+	"member_intervals",
+	"members",
+	"users",
+	"operation_roots",
+	"household_command_gates",
+	"households",
+	"bootstrap_gate",
+] as const satisfies readonly (keyof Database)[];
+
+function sequentialId() {
+	let n = 0;
+	return () => `id-${++n}`;
+}
+
 describe.sequential("D1 integration", () => {
 	let proxy: PlatformProxy<{ DB: D1Database }>;
 	let db: Kysely<Database>;
@@ -25,7 +43,9 @@ describe.sequential("D1 integration", () => {
 	});
 
 	beforeEach(async () => {
-		await db.deleteFrom("users").execute();
+		for (const table of ALL_TABLES) {
+			await db.deleteFrom(table).execute();
+		}
 	});
 
 	afterAll(async () => {
@@ -51,22 +71,21 @@ describe.sequential("D1 integration", () => {
 			.execute();
 
 		const result = await preseedDatabase(db, {
-			createId: () => "development-user",
+			createId: sequentialId(),
 			now: () => new Date("2026-08-03T12:00:00.000Z"),
 			salt: new Uint8Array(16).fill(7),
 		});
 
 		const users = await db.selectFrom("users").selectAll().execute();
-		expect(users).toHaveLength(1);
+		expect(users).toHaveLength(2);
 		expect(users[0]).toMatchObject({
-			id: "development-user",
 			username: DEVELOPMENT_USERNAME,
+			is_administrator: 1,
 			created_at: "2026-08-03T12:00:00.000Z",
-			updated_at: "2026-08-03T12:00:00.000Z",
 		});
 		expect(users[0]?.password_hash).not.toBe(DEVELOPMENT_PASSWORD);
 		await expect(verifyPassword(DEVELOPMENT_PASSWORD, users[0]!.password_hash)).resolves.toBe(true);
-		expect(result).toEqual({ users: 1, username: DEVELOPMENT_USERNAME });
+		expect(result).toMatchObject({ households: 1, members: 3, users: 2, username: DEVELOPMENT_USERNAME });
 	});
 
 	it("executes the Kysely users repository", async () => {
@@ -74,11 +93,12 @@ describe.sequential("D1 integration", () => {
 
 		await expect(createUsersRepository(db).findCredentialsByUsername(DEVELOPMENT_USERNAME)).resolves.toMatchObject({
 			username: DEVELOPMENT_USERNAME,
+			householdId: expect.any(String),
 		});
 	});
 
 	it("enforces canonical username uniqueness", async () => {
-		await preseedDatabase(db, { createId: () => "development-user" });
+		await preseedDatabase(db, { createId: sequentialId() });
 
 		await expect(
 			db

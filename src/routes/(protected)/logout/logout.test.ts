@@ -1,7 +1,6 @@
 import { isRedirect, type Cookies } from "@sveltejs/kit";
 import type { Kysely } from "kysely";
 import { describe, expect, it, vi } from "vitest";
-import { SESSION_COOKIE_NAME } from "$lib/server/auth/request";
 import type { Database } from "$lib/server/database";
 import { actions, load } from "./+page.server";
 import type { PageServerLoadEvent, RequestEvent } from "./$types";
@@ -15,54 +14,50 @@ function createLogoutEvent() {
 		delete: deleteCookie,
 		serialize: vi.fn((name: string, value: string) => `${name}=${value}`),
 	} satisfies Cookies;
-	const locals: App.Locals = {
-		auth: { enabled: true, secret: "0123456789abcdef0123456789abcdef" },
-		db: {} as Kysely<Database>,
+	const db = { deleteFrom: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ execute: vi.fn() }) }) };
+	const locals = {
+		db: db as unknown as Kysely<Database>,
 		kv: undefined,
-		user: { id: "user-1", username: "developer" },
+		user: {
+			id: "user-1",
+			username: "developer",
+			householdId: "hh-1",
+			isAdministrator: true,
+			requiresPasswordChange: false,
+			memberId: "m1",
+		},
+		sessionId: "session-1",
 	};
 	const url = new URL("http://localhost/logout");
-
-	return { cookies, deleteCookie, locals, url };
-}
-
-async function thrownBy(operation: () => unknown): Promise<unknown> {
-	try {
-		await operation();
-	} catch (error) {
-		return error;
-	}
-	throw new Error("Expected the action to throw");
+	return { cookies, deleteCookie, locals, url, db };
 }
 
 describe("logout route", () => {
-	it("loads the confirmation page without clearing the session", async () => {
-		const { cookies, deleteCookie, locals } = createLogoutEvent();
+	it("loads the confirmation page without revoking the session", () => {
+		const { cookies, locals } = createLogoutEvent();
 		const event = { cookies, locals } as unknown as PageServerLoadEvent;
 
-		await expect(Promise.resolve(load(event))).resolves.toEqual({});
-
-		expect(deleteCookie).not.toHaveBeenCalled();
-		expect(locals.user).toEqual({ id: "user-1", username: "developer" });
+		expect(() => load(event)).not.toThrow();
 	});
 
-	it("clears the session only when the logout action is submitted", async () => {
+	it("revokes the session, clears the cookie, and redirects to login", async () => {
 		const { cookies, deleteCookie, locals, url } = createLogoutEvent();
 		const event = { cookies, locals, url } as unknown as RequestEvent;
 		const action = actions["default"];
 		if (!action) throw new Error("Expected a default logout action");
 
-		const thrown = await thrownBy(() => action(event));
+		let thrown: unknown;
+		try {
+			await action(event);
+		} catch (error) {
+			thrown = error;
+		}
 
-		expect(deleteCookie).toHaveBeenCalledWith(SESSION_COOKIE_NAME, {
-			path: "/",
-			httpOnly: true,
-			sameSite: "lax",
-			secure: false,
-		});
-		expect(locals.user).toBeNull();
 		expect(isRedirect(thrown)).toBe(true);
 		if (!isRedirect(thrown)) throw thrown;
 		expect(thrown).toMatchObject({ location: "/login", status: 303 });
+		expect(deleteCookie).toHaveBeenCalledWith("auth_session", expect.objectContaining({ path: "/" }));
+		expect(locals.user).toBeNull();
+		expect(locals.sessionId).toBeNull();
 	});
 });

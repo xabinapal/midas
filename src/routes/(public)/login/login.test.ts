@@ -2,15 +2,30 @@ import { isActionFailure, isRedirect, type Cookies } from "@sveltejs/kit";
 import type { Kysely } from "kysely";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SESSION_COOKIE_NAME } from "$lib/server/auth/request";
-import { SESSION_DURATION_SECONDS, verifySessionToken } from "$lib/server/auth/session";
 import type { Database } from "$lib/server/database";
 import { actions } from "./+page.server";
 import type { RequestEvent } from "./$types";
 
-const AUTH_SECRET = "0123456789abcdef0123456789abcdef";
 const authenticateUser = vi.hoisted(() => vi.fn());
+const createSession = vi.hoisted(() => vi.fn());
 
 vi.mock("$lib/server/auth/service", () => ({ authenticateUser }));
+vi.mock("$lib/server/auth/request", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("$lib/server/auth/request")>();
+	return {
+		...actual,
+		createSession,
+	};
+});
+
+const AUTHED_USER = {
+	id: "user-1",
+	username: "developer",
+	householdId: "hh-1",
+	isAdministrator: true,
+	requiresPasswordChange: false,
+	memberId: "member-1",
+};
 
 function createCookies() {
 	const set = vi.fn();
@@ -21,12 +36,10 @@ function createCookies() {
 		delete: vi.fn(),
 		serialize: vi.fn((name: string, value: string) => `${name}=${value}`),
 	} satisfies Cookies;
-
 	return { cookies, set };
 }
 
 interface LoginEventOptions {
-	authEnabled?: boolean;
 	next?: string;
 	password?: string;
 	protocol?: "http" | "https";
@@ -34,9 +47,8 @@ interface LoginEventOptions {
 }
 
 function createLoginEvent({
-	authEnabled = true,
 	next,
-	password = "password",
+	password = "valid-password-12",
 	protocol = "https",
 	username = "developer",
 }: LoginEventOptions = {}) {
@@ -49,15 +61,14 @@ function createLoginEvent({
 	const event = {
 		cookies,
 		locals: {
-			auth: authEnabled ? { enabled: true as const, secret: AUTH_SECRET } : { enabled: false as const },
 			db: {} as Kysely<Database>,
 			kv: undefined,
 			user: null,
+			sessionId: null,
 		},
 		request: new Request(url, { body: data, method: "POST" }),
 		url,
 	} as unknown as RequestEvent;
-
 	return { event, set };
 }
 
@@ -77,22 +88,13 @@ function defaultAction() {
 }
 
 describe("login action", () => {
-	beforeEach(() => authenticateUser.mockReset());
-
-	it("redirects without validating or issuing a session when authentication is disabled", async () => {
-		const { event, set } = createLoginEvent({ authEnabled: false, password: "", username: "" });
-
-		const thrown = await thrownBy(Promise.resolve(defaultAction()(event)));
-
-		expect(isRedirect(thrown)).toBe(true);
-		if (!isRedirect(thrown)) throw thrown;
-		expect(thrown).toMatchObject({ location: "/", status: 303 });
-		expect(authenticateUser).not.toHaveBeenCalled();
-		expect(set).not.toHaveBeenCalled();
+	beforeEach(() => {
+		authenticateUser.mockReset();
+		createSession.mockReset();
 	});
 
 	it("rejects invalid input without exposing the submitted password", async () => {
-		const { event, set } = createLoginEvent({ password: "", username: "x" });
+		const { event, set } = createLoginEvent({ password: "short", username: "x" });
 
 		const result = await defaultAction()(event);
 
@@ -107,7 +109,7 @@ describe("login action", () => {
 
 	it("returns one generic failure and clears the password for invalid credentials", async () => {
 		authenticateUser.mockResolvedValue(null);
-		const { event, set } = createLoginEvent({ password: "incorrect" });
+		const { event, set } = createLoginEvent({ password: "incorrect-pass" });
 
 		const result = await defaultAction()(event);
 
@@ -123,28 +125,29 @@ describe("login action", () => {
 		expect(set).not.toHaveBeenCalled();
 	});
 
-	it("issues a secure session and redirects to a validated local destination", async () => {
-		const user = { id: "user-1", username: "developer" };
-		authenticateUser.mockResolvedValue(user);
-		const password = " unchanged password ";
+	it("creates a session and redirects to a validated local destination", async () => {
+		authenticateUser.mockResolvedValue(AUTHED_USER);
+		createSession.mockResolvedValue({ token: "bearer-token", sessionId: "s1" });
 		const { event, set } = createLoginEvent({
 			next: "/dashboard?tab=one",
-			password,
+			password: "valid-password-12",
 			username: " Developer ",
 		});
 
 		const thrown = await thrownBy(Promise.resolve(defaultAction()(event)));
 
-		expect(authenticateUser).toHaveBeenCalledWith(expect.any(Object), "developer", password);
-		expect(set).toHaveBeenCalledWith(SESSION_COOKIE_NAME, expect.any(String), {
-			httpOnly: true,
-			maxAge: SESSION_DURATION_SECONDS,
-			path: "/",
-			sameSite: "lax",
-			secure: true,
-		});
-		const token = set.mock.calls[0]![1] as string;
-		await expect(verifySessionToken(token, AUTH_SECRET)).resolves.toMatchObject({ user });
+		expect(authenticateUser).toHaveBeenCalledWith(expect.any(Object), "developer", "valid-password-12");
+		expect(createSession).toHaveBeenCalledWith(expect.any(Object), "user-1", "hh-1");
+		expect(set).toHaveBeenCalledWith(
+			SESSION_COOKIE_NAME,
+			"bearer-token",
+			expect.objectContaining({
+				path: "/",
+				httpOnly: true,
+				sameSite: "lax",
+				secure: true,
+			}),
+		);
 		expect(isRedirect(thrown)).toBe(true);
 		if (!isRedirect(thrown)) throw thrown;
 		expect(thrown).toMatchObject({ location: "/dashboard?tab=one", status: 303 });
@@ -153,8 +156,8 @@ describe("login action", () => {
 	it.each(["https://evil.example/path", "//evil.example/path", "/\\evil.example/path", undefined])(
 		"redirects an authenticated submission with destination %s to the application root",
 		async (next) => {
-			const user = { id: "user-1", username: "developer" };
-			authenticateUser.mockResolvedValue(user);
+			authenticateUser.mockResolvedValue(AUTHED_USER);
+			createSession.mockResolvedValue({ token: "t", sessionId: "s1" });
 			const { event } = createLoginEvent({ next });
 
 			const thrown = await thrownBy(Promise.resolve(defaultAction()(event)));

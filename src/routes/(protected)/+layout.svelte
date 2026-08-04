@@ -17,11 +17,9 @@
 				<a class="btn btn-ghost min-h-11 px-2 text-xl font-bold text-primary" href={resolve("/")}>{site.title}</a>
 			</div>
 			<div class="navbar-end ml-auto gap-2">
-				{#if data.authEnabled && data.user}
+				{#if data.user}
 					<span class="max-w-[40vw] truncate text-sm text-[var(--color-text-soft)]">{data.user.username}</span>
 					<a class="btn btn-ghost min-h-11" href={resolve("/logout")}>Cerrar sesión</a>
-				{:else}
-					<span class="badge badge-ghost min-h-7 whitespace-normal">Autenticación desactivada</span>
 				{/if}
 			</div>
 		</header>

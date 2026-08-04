@@ -1,9 +1,12 @@
 import { error, redirect, type Handle } from "@sveltejs/kit";
 import { building } from "$app/environment";
-import { env } from "$env/dynamic/private";
-import { readAuthConfig } from "$lib/server/auth/config";
 import { createLoginRedirect, protectedRouteKind } from "$lib/server/auth/guard";
-import { SESSION_COOKIE_NAME, resolveRequestSession, sessionCookieOptions } from "$lib/server/auth/request";
+import {
+	SESSION_COOKIE_NAME,
+	resolveRequestSession,
+	sessionCookieOptions,
+	type RequestSession,
+} from "$lib/server/auth/request";
 import { createDatabase, runMigrations, type Database } from "$lib/server/database";
 import { createDatabaseInitializer } from "$lib/server/database/initializer";
 import { createKeyValueStore } from "$lib/server/kv";
@@ -36,24 +39,24 @@ function statusLevel(status: number): LogLevel {
 
 interface RequestHandleDependencies {
 	accessLogger: Pick<typeof logger, "log">;
-	getPrivateEnvironment(): Record<string, string | undefined>;
 	initializeDatabase(binding: D1Database | undefined): Promise<Kysely<Database>>;
 	isBuilding(): boolean;
+	resolveSession?: (db: Kysely<Database>, token: string | undefined) => Promise<RequestSession>;
 }
 
 export function createRequestHandle({
 	accessLogger,
-	getPrivateEnvironment,
 	initializeDatabase,
 	isBuilding,
+	resolveSession = resolveRequestSession,
 }: RequestHandleDependencies): Handle {
 	return async ({ event, resolve }) => {
 		const start = performance.now();
 		let status = 500;
 
 		try {
-			event.locals.auth = { enabled: false };
 			event.locals.user = null;
+			event.locals.sessionId = null;
 
 			if (isBuilding() && protectedRouteKind(event.route.id)) {
 				error(500, "Protected routes cannot be prerendered");
@@ -64,25 +67,28 @@ export function createRequestHandle({
 				event.locals.db = await initializeDatabase(environment?.DB);
 				const namespace = environment?.KV;
 				event.locals.kv = namespace ? createKeyValueStore(namespace, "app") : undefined;
-				const privateEnvironment = getPrivateEnvironment();
-				event.locals.auth = readAuthConfig({
-					AUTH_ENABLED: privateEnvironment["AUTH_ENABLED"] ?? environment?.AUTH_ENABLED,
-					AUTH_SECRET: privateEnvironment["AUTH_SECRET"] ?? environment?.AUTH_SECRET,
-				});
 
-				const requestSession = await resolveRequestSession(event.locals.auth, event.cookies.get(SESSION_COOKIE_NAME));
+				const requestSession = await resolveSession(event.locals.db, event.cookies.get(SESSION_COOKIE_NAME));
 				event.locals.user = requestSession.user;
+				event.locals.sessionId = requestSession.sessionId;
 
-				if (requestSession.clearCookie) event.cookies.delete(SESSION_COOKIE_NAME, { path: "/" });
-				if (requestSession.refreshedToken) {
+				if (requestSession.clearCookie) {
+					event.cookies.delete(SESSION_COOKIE_NAME, {
+						path: "/",
+						httpOnly: true,
+						sameSite: "lax",
+						secure: event.url.protocol === "https:",
+					});
+				}
+				if (requestSession.rotatedToken) {
 					event.cookies.set(
 						SESSION_COOKIE_NAME,
-						requestSession.refreshedToken,
+						requestSession.rotatedToken,
 						sessionCookieOptions(event.url.protocol === "https:"),
 					);
 				}
 
-				if (event.locals.auth.enabled && !event.locals.user) {
+				if (!event.locals.user) {
 					const routeKind = protectedRouteKind(event.route.id);
 					if (routeKind === "page") redirect(303, createLoginRedirect(event.url));
 					if (routeKind === "api") error(401, "Autenticación obligatoria");
@@ -110,7 +116,6 @@ export function createRequestHandle({
 
 export const handle = createRequestHandle({
 	accessLogger: logger,
-	getPrivateEnvironment: () => env,
 	initializeDatabase,
 	isBuilding: () => building,
 });

@@ -10,7 +10,9 @@ try {
 		await runMigrations(db);
 		const result = await preseedDatabase(db);
 
-		console.log(`Development database preseeded: ${result.users} user (${result.username}).`);
+		console.log(
+			`Development database preseeded: ${result.households} household, ${result.members} members, ${result.users} users (${result.username}).`,
+		);
 	} finally {
 		await db.destroy();
 	}

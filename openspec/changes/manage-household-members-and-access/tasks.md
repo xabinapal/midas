@@ -9,14 +9,14 @@
 
 - [x] 2.1 Add a replay-safe reversible migration for the singleton bootstrap gate, households and command gates, members, effective member intervals/defaults, versioned user/credential state, revocable sessions, operation roots, activity events, consumed recovery credentials, and required relationships.
 - [x] 2.2 Update typed database schema and repository interfaces with household-scoped constraints and indexes.
-- [ ] 2.3 Update local preseed deletion order and representative data for multiple active members, active administrators, a regular user, an inactive historical member, and valid credential hashes.
+- [x] 2.3 Update local preseed deletion order and representative data for multiple active members, active administrators, a regular user, an inactive historical member, and valid credential hashes.
 - [ ] 2.4 Add local integration tests for migration replay, uniqueness, same-household relationships, command-gate conflicts/lease recovery, different-ID concurrent operations, session digest lookup, and preseed completeness.
 
 ## 3. Authentication and Administration Services
 
 - [ ] 3.1 Implement injected household/member services and repositories for creation, lifecycle, default weights, safe projections, and historical retention.
 - [ ] 3.2 Implement one-time bootstrap with a server-only credential, replay-safe household/two-or-more-member/admin creation, generic failure, and data-state shutdown.
-- [ ] 3.3 Replace JWT issuance/validation with random bearer tokens, SHA-256 session digests, eight-hour expiry, four-hour rotation, active-user checks, and immediate revocation.
+- [x] 3.3 Replace JWT issuance/validation with random bearer tokens, SHA-256 session digests, eight-hour expiry, four-hour rotation, active-user checks, and immediate revocation.
 - [ ] 3.4 Implement household-administrator authorization only for user, credential, and cross-user session operations while preserving equal financial access.
 - [ ] 3.5 Implement own-password change, administrator reset, forced password change, session enumeration/revocation, one-time operator recovery, last-administrator protection, and stable structured security logging without secrets.
 - [ ] 3.6 Implement append-only activity recording in each material operation and safe history queries.
