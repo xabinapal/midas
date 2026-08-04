@@ -12,6 +12,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const next = safeRedirectPath(url.searchParams.get("next"));
 	if (locals.user) redirect(303, next);
 
+	const userCount = await locals.db.selectFrom("users").select("id").limit(1).execute();
+	if (userCount.length === 0) redirect(303, "/setup");
+
 	return { form: await superValidate(zod4(loginSchema)) };
 };
 
@@ -31,6 +34,7 @@ export const actions: Actions = {
 
 		const { token } = await createSession(locals.db, user.id, user.householdId);
 		cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(url.protocol === "https:"));
+		if (user.requiresPasswordChange) redirect(303, "/cambiar-contrasena");
 		redirect(303, safeRedirectPath(url.searchParams.get("next")));
 	},
 };

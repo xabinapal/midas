@@ -19,6 +19,19 @@
 			<div class="navbar-end ml-auto gap-2">
 				{#if data.user}
 					<span class="max-w-[40vw] truncate text-sm text-[var(--color-text-soft)]">{data.user.username}</span>
+					<a class="btn btn-ghost min-h-11 px-2" href={resolve("/cambiar-contrasena")} aria-label="Cambiar contraseña">
+						<svg
+							aria-hidden="true"
+							class="size-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<rect x="3" y="11" width="18" height="11" rx="2" />
+							<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+						</svg>
+					</a>
 					<a class="btn btn-ghost min-h-11" href={resolve("/logout")}>Cerrar sesión</a>
 				{/if}
 			</div>

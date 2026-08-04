@@ -92,6 +92,11 @@ export function createRequestHandle({
 					const routeKind = protectedRouteKind(event.route.id);
 					if (routeKind === "page") redirect(303, createLoginRedirect(event.url));
 					if (routeKind === "api") error(401, "Autenticación obligatoria");
+				} else if (event.locals.user.requiresPasswordChange) {
+					const allowedDuringForced = ["/(protected)/cambiar-contrasena", "/(protected)/logout"];
+					if (!allowedDuringForced.includes(event.route.id ?? "")) {
+						redirect(303, "/cambiar-contrasena");
+					}
 				}
 			}
 
