@@ -13,7 +13,8 @@ describe("AppNavigation", () => {
 			const navigation = screen.getByRole("navigation", { name: navigationName });
 
 			for (const destinationName of destinationNames) {
-				const role = destinationName === "Resumen" ? "link" : "button";
+				const isLink = destinationName === "Resumen" || destinationName === "Más";
+				const role = isLink ? "link" : "button";
 				expect(within(navigation).getByRole(role, { name: destinationName })).toBeTruthy();
 			}
 			expect(within(navigation).getByRole("button", { name: "Añadir gasto" })).toBeTruthy();

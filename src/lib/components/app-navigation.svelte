@@ -10,14 +10,14 @@
 	interface Destination {
 		label: string;
 		icon: NavigationIcon;
-		href?: "/";
+		href?: "/" | "/mas";
 	}
 
 	const destinations: Destination[] = [
 		{ label: "Resumen", icon: "summary", href: "/" },
 		{ label: "Gastos", icon: "expenses" },
 		{ label: "Saldos", icon: "balances" },
-		{ label: "Más", icon: "more" },
+		{ label: "Más", icon: "more", href: "/mas" },
 	];
 
 	let { currentPath }: Props = $props();
@@ -85,10 +85,22 @@
 	</div>
 
 	{#each destinations.slice(2) as destination (destination.label)}
-		<button class="min-w-11 text-[var(--color-disabled-text)]" type="button" aria-disabled="true">
-			{@render navigationIcon(destination.icon)}
-			<span class="dock-label whitespace-normal">{destination.label}</span>
-		</button>
+		{#if destination.href}
+			<a
+				class:font-bold={currentPath === destination.href}
+				class:text-primary={currentPath === destination.href}
+				href={resolve(destination.href)}
+				aria-current={currentPath === destination.href ? "page" : undefined}
+			>
+				{@render navigationIcon(destination.icon)}
+				<span class="dock-label whitespace-normal">{destination.label}</span>
+			</a>
+		{:else}
+			<button class="min-w-11 text-[var(--color-disabled-text)]" type="button" aria-disabled="true">
+				{@render navigationIcon(destination.icon)}
+				<span class="dock-label whitespace-normal">{destination.label}</span>
+			</button>
+		{/if}
 	{/each}
 </nav>
 

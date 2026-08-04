@@ -24,9 +24,9 @@
 ## 4. Spanish User Workflows
 
 - [x] 4.1 Build setup, login, forced-password-change, own-password, and logout flows with Superforms/Zod, generic failures, and no returned password values.
-- [ ] 4.2 Build household member list/detail/create/lifecycle/default-allocation workflows for arbitrary member counts.
-- [ ] 4.3 Build administrator user list/create/link/designate/disable/reactivate/reset/revoke workflows and protect every action server-side.
-- [ ] 4.4 Build current-user session management and household activity history with Spanish copy, responsive states, confirmations, and URL-backed filters.
+- [x] 4.2 Build household member list/detail/create/lifecycle/default-allocation workflows for arbitrary member counts.
+- [x] 4.3 Build administrator user list/create/link/designate/disable/reactivate/reset/revoke workflows and protect every action server-side.
+- [x] 4.4 Build current-user session management and household activity history with Spanish copy, responsive states, confirmations, and URL-backed filters.
 - [ ] 4.5 Add component and route tests for permissions, long Spanish labels, validation, confirmations, immediate revocation, forced rotation, and safe history display.
 
 ## 5. Operations and Verification

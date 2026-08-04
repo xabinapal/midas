@@ -1,6 +1,5 @@
+<!-- eslint-disable svelte/no-navigation-without-resolve -->
 <script lang="ts">
-	import { resolve } from "$app/paths";
-	import type { PathnameWithSearchOrHash } from "$app/types";
 	import { formatPeriod } from "$lib/format/format";
 	import { getPeriodNavigation } from "$lib/period/period";
 
@@ -13,16 +12,16 @@
 
 	const navigation = $derived(getPeriodNavigation(url, currentDate));
 	const periodLabel = $derived(formatPeriod(navigation.selectedPeriod));
-	const links = $derived({
-		previous: resolve(navigation.previousHref as PathnameWithSearchOrHash),
-		current: resolve(navigation.currentHref as PathnameWithSearchOrHash),
-		next: resolve(navigation.nextHref as PathnameWithSearchOrHash),
-	});
 </script>
 
+<!-- eslint-disable svelte/no-navigation-without-resolve -->
 <section class="flex flex-col items-center gap-2" aria-label="Periodo contable">
 	<div class="join w-full max-w-md" aria-label="Seleccionar periodo">
-		<a class="btn join-item min-h-12 min-w-12 bg-base-100 px-3" href={links.previous} aria-label="Mes anterior">
+		<a
+			class="btn join-item min-h-12 min-w-12 bg-base-100 px-3"
+			href={navigation.previousHref}
+			aria-label="Mes anterior"
+		>
 			<svg aria-hidden="true" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="m15 18-6-6 6-6" />
 			</svg>
@@ -34,7 +33,7 @@
 		>
 			{periodLabel}
 		</time>
-		<a class="btn join-item min-h-12 min-w-12 bg-base-100 px-3" href={links.next} aria-label="Mes siguiente">
+		<a class="btn join-item min-h-12 min-w-12 bg-base-100 px-3" href={navigation.nextHref} aria-label="Mes siguiente">
 			<svg aria-hidden="true" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="m9 18 6-6-6-6" />
 			</svg>
@@ -43,7 +42,7 @@
 
 	<a
 		class="link link-primary min-h-11 content-center px-3 text-sm"
-		href={links.current}
+		href={navigation.currentHref}
 		aria-label="Ir al mes actual"
 		aria-current={navigation.selectedPeriod === navigation.currentPeriod ? "date" : undefined}
 	>
