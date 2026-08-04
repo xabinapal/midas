@@ -10,7 +10,7 @@
 - [x] 2.1 Add a replay-safe reversible migration for the singleton bootstrap gate, households and command gates, members, effective member intervals/defaults, versioned user/credential state, revocable sessions, operation roots, activity events, consumed recovery credentials, and required relationships.
 - [x] 2.2 Update typed database schema and repository interfaces with household-scoped constraints and indexes.
 - [x] 2.3 Update local preseed deletion order and representative data for multiple active members, active administrators, a regular user, an inactive historical member, and valid credential hashes.
-- [ ] 2.4 Add local integration tests for migration replay, uniqueness, same-household relationships, command-gate conflicts/lease recovery, different-ID concurrent operations, session digest lookup, and preseed completeness.
+- [x] 2.4 Add local integration tests for migration replay, uniqueness, same-household relationships, command-gate conflicts/lease recovery, different-ID concurrent operations, session digest lookup, and preseed completeness.
 
 ## 3. Authentication and Administration Services
 

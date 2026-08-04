@@ -90,25 +90,37 @@ export const householdMembersAndAccess: Migration = {
 			.columns(["member_id", "effective_from"])
 			.execute();
 
-		// Users table gains household/member/lifecycle columns
-		await db.schema.alterTable("users").addColumn("household_id", "text").execute();
-
-		await db.schema.alterTable("users").addColumn("member_id", "text").execute();
-
-		await db.schema
-			.alterTable("users")
-			.addColumn("is_active", "integer", (col) => col.notNull().defaultTo(1))
-			.execute();
-
-		await db.schema
-			.alterTable("users")
-			.addColumn("is_administrator", "integer", (col) => col.notNull().defaultTo(0))
-			.execute();
-
-		await db.schema
-			.alterTable("users")
-			.addColumn("requires_password_change", "integer", (col) => col.notNull().defaultTo(0))
-			.execute();
+		// Users table gains household/member/lifecycle columns.
+		// ALTER TABLE ADD COLUMN has no IF NOT EXISTS in SQLite, so wrap each
+		// in a conditional try to make the migration replay-safe.
+		for (const col of [
+			{
+				name: "household_id",
+				def: (c: ReturnType<typeof db.schema.alterTable>) => c.addColumn("household_id", "text"),
+			},
+			{ name: "member_id", def: (c: ReturnType<typeof db.schema.alterTable>) => c.addColumn("member_id", "text") },
+			{
+				name: "is_active",
+				def: (c: ReturnType<typeof db.schema.alterTable>) =>
+					c.addColumn("is_active", "integer", (col) => col.notNull().defaultTo(1)),
+			},
+			{
+				name: "is_administrator",
+				def: (c: ReturnType<typeof db.schema.alterTable>) =>
+					c.addColumn("is_administrator", "integer", (col) => col.notNull().defaultTo(0)),
+			},
+			{
+				name: "requires_password_change",
+				def: (c: ReturnType<typeof db.schema.alterTable>) =>
+					c.addColumn("requires_password_change", "integer", (col) => col.notNull().defaultTo(0)),
+			},
+		]) {
+			try {
+				await col.def(db.schema.alterTable("users")).execute();
+			} catch {
+				// Column already exists — replay-safe
+			}
+		}
 
 		// Revocable sessions — stores only SHA-256 digest, never the bearer token
 		await db.schema
