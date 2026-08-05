@@ -94,41 +94,46 @@ file and adjust:
 cp .env.example .env
 ```
 
-| Variable       | Purpose                                                     |
-| -------------- | ----------------------------------------------------------- |
-| `APP_BASE_URL` | Canonical base URL (local dev vs production)                |
-| `AUTH_ENABLED` | Enables authentication when its normalized value is `true`  |
-| `AUTH_SECRET`  | Server-only JWT signing secret containing at least 32 bytes |
+| Variable               | Purpose                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `APP_BASE_URL`         | Canonical base URL (local dev vs production)                                          |
+| `BOOTSTRAP_CREDENTIAL` | Server-only one-time setup credential (≥32 bytes; remove after first setup)           |
+| `RECOVERY_CREDENTIAL`  | Server-only operator recovery credential (≥32 bytes; single-use; disabled by default) |
 
 Static app identity — title, description, author, keywords, and theme color —
 lives in [`src/lib/site.ts`](src/lib/site.ts), not in env vars.
 
-`AUTH_SECRET` is intentionally not prefixed with `APP_` and must never be
-exposed to client code or committed with a production value. Authentication is
-disabled when `AUTH_ENABLED` is absent or normalizes to `false`; an invalid
-value or an enabled configuration without a sufficiently long secret fails
-closed.
+Bootstrap and recovery credentials are server-only and must never be exposed to
+client code, logs, or activity metadata. Remove or rotate the bootstrap
+credential after the initial setup is complete.
 
 ## Authentication
 
-Authentication uses internal D1 users and username/password credentials. The
-database stores only PBKDF2-HMAC-SHA256 hashes with 600,000 iterations and a
-unique 16-byte salt. Login failures use the same response whether the username
-is missing or the password is wrong, and failed responses remove the submitted
-password before returning form state to the browser.
+Authentication is mandatory. There is no disabled-authentication bypass mode.
+Every request to a protected route validates a server-side session against D1.
 
-Copying `.env.example` enables authentication locally. Development preseeding
-creates this local-only account on every server start:
+Passwords use PBKDF2-HMAC-SHA256 with 600,000 iterations and a unique 16-byte
+salt. Passwords must be 12–128 characters. Login failures use the same response
+whether the username is missing or the password is wrong.
+
+Sessions use cryptographically random 256-bit bearer tokens stored only in
+secure cookies. The server stores a SHA-256 digest — never the bearer token
+itself. Every protected request validates the digest, user active state, and
+household relationship against D1. Sessions expire after eight hours and rotate
+their bearer token once after four hours. Disabling a user, resetting a
+password, or explicitly revoking a session takes effect immediately on the next
+request.
+
+Development preseeding creates this local-only account on every server start:
 
 ```text
 username: developer
 password: development-password
 ```
 
-Never use that account or password in production. There is deliberately no
-registration, password reset, user administration, or authorization model in
-Midas; later capabilities add their own controlled user-provisioning
-workflow.
+Never use that account or password in production. Use the one-time `/setup` flow
+with `BOOTSTRAP_CREDENTIAL` configured to create the first household and
+administrator.
 
 ### Protecting routes
 
@@ -140,26 +145,30 @@ Route groups make protection explicit without changing public URLs:
   requests receive `401 Authentication required`; `/api/session` is the included
   example.
 - Keep routes outside those groups when they must remain public. `/login`,
-  `/robots.txt`, and `/site.webmanifest` demonstrate public routes.
+  `/setup`, `/recuperacion`, `/robots.txt`, and `/site.webmanifest` are public.
 
-When authentication is disabled, both protected groups are accessible and
-`locals.user` is `null`, so protected pages must tolerate the disabled mode.
+Users with `requires_password_change` are restricted to password change, logout,
+and supporting routes until they set a new password.
 
-Successful login creates an eight-hour HS256 JWT in an `HttpOnly`,
-`SameSite=Lax` cookie. HTTPS requests also set `Secure`. Valid sessions are
-renewed after half their lifetime during navigation, providing sliding
-expiration. Logout is a POST operation that clears the cookie. JWT sessions are
-stateless, so changing or deleting a database user does not revoke an already
-issued token; rotate `AUTH_SECRET` to invalidate all sessions.
+### Credential administration
 
-For production, set `AUTH_ENABLED=true` as a Worker variable and provision
-`AUTH_SECRET` with Cloudflare Secrets using a cryptographically random value of
-at least 32 bytes. Development preseeding always targets local bindings and
-never creates production users.
+Active household administrators can create users, designate administrators,
+disable and reactivate users, reset passwords, and revoke sessions. Every
+household must retain at least one active administrator. All credential
+operations append durable activity events that never store passwords, hashes, or
+tokens.
 
-PBKDF2 is deliberately expensive. Production deployments must apply
-Cloudflare edge rate limiting to `POST /login` and configure a Worker CPU limit
-that accommodates a measured password verification on the selected plan.
+### Operator-assisted recovery
+
+When all administrators lose access, a deployment operator can enable the
+`/recuperacion` route by setting `RECOVERY_CREDENTIAL` (≥32 bytes). Each
+credential can be used only once to reactivate one administrator with a forced
+temporary password. The recovery is audited.
+
+For production, provision `BOOTSTRAP_CREDENTIAL` and optionally
+`RECOVERY_CREDENTIAL` with Cloudflare Secrets. Apply edge rate limiting to
+`POST /login`, `POST /setup`, and `POST /recuperacion`. Configure a Worker CPU
+limit that accommodates password verification at the required work factor.
 
 ## Testing
 

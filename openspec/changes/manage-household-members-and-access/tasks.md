@@ -27,11 +27,11 @@
 - [x] 4.2 Build household member list/detail/create/lifecycle/default-allocation workflows for arbitrary member counts.
 - [x] 4.3 Build administrator user list/create/link/designate/disable/reactivate/reset/revoke workflows and protect every action server-side.
 - [x] 4.4 Build current-user session management and household activity history with Spanish copy, responsive states, confirmations, and URL-backed filters.
-- [ ] 4.5 Add component and route tests for permissions, long Spanish labels, validation, confirmations, immediate revocation, forced rotation, and safe history display.
+- [x] 4.5 Add component and route tests for permissions, long Spanish labels, validation, confirmations, immediate revocation, forced rotation, and safe history display.
 
 ## 5. Operations and Verification
 
-- [ ] 5.1 Align `AGENTS.md`, `README.md`, and OpenSpec context with mandatory authentication, bounded credential administration, bootstrap/recovery-secret removal or rotation, and production rate limiting.
-- [ ] 5.2 Run focused security, unit, component, and integration tests during implementation.
-- [ ] 5.3 Run `mise run format`, `mise run lint`, `mise run check`, and `mise run test`.
-- [ ] 5.4 Run strict OpenSpec validation and `/opsx-verify` for this change before archive.
+- [x] 5.1 Align `AGENTS.md`, `README.md`, and OpenSpec context with mandatory authentication, bounded credential administration, bootstrap/recovery-secret removal or rotation, and production rate limiting.
+- [x] 5.2 Run focused security, unit, component, and integration tests during implementation.
+- [x] 5.3 Run `mise run format`, `mise run lint`, `mise run check`, and `mise run test`.
+- [x] 5.4 Run strict OpenSpec validation and `/opsx-verify` for this change before archive.
