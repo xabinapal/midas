@@ -47,8 +47,20 @@ export interface MemberRepository {
 	findById(id: string): Promise<MemberRecord | undefined>;
 	create(input: CreateMemberInput, now: string): Promise<void>;
 	updateActive(memberId: string, isActive: boolean, now: string): Promise<void>;
+	updateWeight(memberId: string, weight: number, now: string): Promise<void>;
 	countActiveByHousehold(householdId: string): Promise<number>;
 	hasFinancialReferences(memberId: string): Promise<boolean>;
+}
+
+async function currentWeight(db: Kysely<Database>, memberId: string): Promise<number> {
+	const interval = await db
+		.selectFrom("member_intervals")
+		.select("default_weight")
+		.where("member_id", "=", memberId)
+		.orderBy("effective_from", "desc")
+		.limit(1)
+		.executeTakeFirst();
+	return interval?.default_weight ?? 0;
 }
 
 export function createHouseholdRepository(db: Kysely<Database>): HouseholdRepository {
@@ -100,12 +112,13 @@ export function createMemberRepository(db: Kysely<Database>): MemberRepository {
 				.where("household_id", "=", householdId)
 				.orderBy("created_at", "asc")
 				.execute();
-			return rows.map((row) => ({
+			const weights = await Promise.all(rows.map((row) => currentWeight(db, row.id)));
+			return rows.map((row, i) => ({
 				id: row.id,
 				householdId: row.household_id,
 				displayName: row.display_name,
 				isActive: row.is_active === 1,
-				defaultWeight: 0,
+				defaultWeight: weights[i] ?? 0,
 			}));
 		},
 
@@ -117,7 +130,7 @@ export function createMemberRepository(db: Kysely<Database>): MemberRepository {
 				householdId: row.household_id,
 				displayName: row.display_name,
 				isActive: row.is_active === 1,
-				defaultWeight: 0,
+				defaultWeight: await currentWeight(db, id),
 			};
 		},
 
@@ -154,14 +167,29 @@ export function createMemberRepository(db: Kysely<Database>): MemberRepository {
 				.where("id", "=", memberId)
 				.execute();
 
+			const weight = await currentWeight(db, memberId);
 			await db
 				.insertInto("member_intervals")
 				.values({
 					id: crypto.randomUUID(),
 					member_id: memberId,
 					effective_from: now,
-					default_weight: 0,
+					default_weight: weight,
 					is_active: isActive ? 1 : 0,
+					operation_id: null,
+				})
+				.execute();
+		},
+
+		async updateWeight(memberId, weight, now) {
+			await db
+				.insertInto("member_intervals")
+				.values({
+					id: crypto.randomUUID(),
+					member_id: memberId,
+					effective_from: now,
+					default_weight: weight,
+					is_active: 1,
 					operation_id: null,
 				})
 				.execute();

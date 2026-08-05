@@ -47,6 +47,22 @@
 					{/if}
 				</label>
 
+				<label class="fieldset" for="defaultWeight">
+					<span class="fieldset-legend">Peso de reparto por defecto</span>
+					<input
+						id="defaultWeight"
+						name="defaultWeight"
+						type="number"
+						min="0"
+						class="input min-h-12 w-full"
+						bind:value={data.form.data.defaultWeight}
+						required
+					/>
+					{#if activeForm.errors.defaultWeight}
+						<p class="label text-error">{activeForm.errors.defaultWeight}</p>
+					{/if}
+				</label>
+
 				<div class="flex gap-2">
 					<a class="btn min-h-12 flex-1" href={resolve("/mas/miembros")}>Cancelar</a>
 					<button class="btn btn-primary min-h-12 flex-1" disabled={submitting}>

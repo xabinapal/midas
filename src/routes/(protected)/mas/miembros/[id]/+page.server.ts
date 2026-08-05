@@ -8,6 +8,7 @@ import type { Actions, PageServerLoad } from "./$types";
 
 const editMemberSchema = z.object({
 	displayName: z.string().min(1, "El nombre es obligatorio").max(100),
+	defaultWeight: z.coerce.number().int().min(0, "El peso debe ser positivo"),
 });
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -24,7 +25,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	return {
 		member,
 		linkedUsers,
-		form: await superValidate({ displayName: member.displayName }, zod4(editMemberSchema)),
+		form: await superValidate(
+			{ displayName: member.displayName, defaultWeight: member.defaultWeight },
+			zod4(editMemberSchema),
+		),
 	};
 };
 
@@ -46,6 +50,9 @@ export const actions: Actions = {
 				.set({ display_name: form.data.displayName, updated_at: nowIso })
 				.where("id", "=", params.id)
 				.execute();
+			if (form.data.defaultWeight !== member.defaultWeight) {
+				await repo.updateWeight(params.id, form.data.defaultWeight, nowIso);
+			}
 			await db
 				.insertInto("activity_events")
 				.values({
@@ -57,7 +64,7 @@ export const actions: Actions = {
 					actor_user_id: locals.user!.id,
 					occurred_at: nowIso,
 					recorded_at: nowIso,
-					summary: JSON.stringify({ memberName: form.data.displayName }),
+					summary: JSON.stringify({ memberName: form.data.displayName, defaultWeight: form.data.defaultWeight }),
 					operation_id: ctx.operationId,
 					correction_of_event_id: null,
 				})
