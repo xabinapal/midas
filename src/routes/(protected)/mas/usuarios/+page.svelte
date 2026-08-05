@@ -131,6 +131,9 @@
 								<span class="badge badge-sm badge-warning">Cambio pendiente</span>
 							{/if}
 						</div>
+						{#if user.member_id && data.memberNameMap?.get(user.member_id)}
+							<p class="text-sm text-[var(--color-text-soft)]">Miembro: {data.memberNameMap.get(user.member_id)}</p>
+						{/if}
 					</div>
 					<div class="flex flex-wrap gap-2">
 						{#if user.id !== data.currentUserId}
@@ -145,6 +148,10 @@
 									<button class="btn btn-ghost btn-sm min-h-11" type="submit">
 										{user.is_administrator === 1 ? "Quitar admin" : "Hacer admin"}
 									</button>
+								</form>
+								<form method="POST" action="/mas/sesiones?/adminRevokeAll">
+									<input type="hidden" name="targetUserId" value={user.id} />
+									<button class="btn btn-ghost btn-sm min-h-11" type="submit">Cerrar sesiones</button>
 								</form>
 								<button
 									class="btn btn-ghost btn-sm min-h-11"

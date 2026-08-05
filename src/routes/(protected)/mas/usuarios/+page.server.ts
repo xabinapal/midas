@@ -30,18 +30,20 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.execute();
 
 	const linkedMemberIds = users.filter((u) => u.member_id).map((u) => u.member_id!);
-	const unlinkedMembers = await locals.db
+	const allMembers = await locals.db
 		.selectFrom("members")
 		.select(["id", "display_name"])
 		.where("household_id", "=", householdId)
 		.where("is_active", "=", 1)
 		.execute();
-	const availableMembers = unlinkedMembers.filter((m) => !linkedMemberIds.includes(m.id));
+	const memberNameMap = new Map(allMembers.map((m) => [m.id, m.display_name]));
+	const availableMembers = allMembers.filter((m) => !linkedMemberIds.includes(m.id));
 
 	return {
 		users,
 		currentUserId: locals.user.id,
 		availableMembers,
+		memberNameMap,
 		createForm: await superValidate(zod4(createUserSchema)),
 	};
 };

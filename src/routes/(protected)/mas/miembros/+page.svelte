@@ -28,7 +28,7 @@
 	>
 		{#each data.members as member (member.id)}
 			<div class="flex items-center justify-between gap-4 p-4">
-				<div class="flex items-center gap-3">
+				<a class="flex items-center gap-3" href={resolve(`/mas/miembros/${member.id}`)}>
 					<div class="avatar avatar-placeholder">
 						<div class="size-10 rounded-full bg-base-200 text-center leading-10">{member.displayName.charAt(0)}</div>
 					</div>
@@ -38,18 +38,21 @@
 							{member.isActive ? "Activo" : "Inactivo"}
 						</p>
 					</div>
+				</a>
+				<div class="flex gap-2">
+					<a class="btn btn-ghost btn-sm min-h-11" href={resolve(`/mas/miembros/${member.id}`)}>Editar</a>
+					{#if member.isActive}
+						<form method="POST" action="?/deactivate">
+							<input type="hidden" name="memberId" value={member.id} />
+							<button class="btn btn-ghost btn-sm min-h-11" type="submit">Desactivar</button>
+						</form>
+					{:else}
+						<form method="POST" action="?/reactivate">
+							<input type="hidden" name="memberId" value={member.id} />
+							<button class="btn btn-ghost btn-sm min-h-11" type="submit">Reactivar</button>
+						</form>
+					{/if}
 				</div>
-				{#if member.isActive}
-					<form method="POST" action="?/deactivate">
-						<input type="hidden" name="memberId" value={member.id} />
-						<button class="btn btn-ghost btn-sm min-h-11" type="submit">Desactivar</button>
-					</form>
-				{:else}
-					<form method="POST" action="?/reactivate">
-						<input type="hidden" name="memberId" value={member.id} />
-						<button class="btn btn-ghost btn-sm min-h-11" type="submit">Reactivar</button>
-					</form>
-				{/if}
 			</div>
 		{:else}
 			<div class="p-8 text-center text-[var(--color-text-soft)]">No hay miembros registrados.</div>

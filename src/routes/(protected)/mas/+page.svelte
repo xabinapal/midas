@@ -13,6 +13,12 @@
 			icon: "members",
 		},
 		{
+			href: resolve("/cambiar-contrasena"),
+			label: "Contraseña",
+			description: "Cambia tu contraseña",
+			icon: "password",
+		},
+		{
 			href: resolve("/mas/sesiones"),
 			label: "Sesiones",
 			description: "Revisa y cierra tus sesiones activas",
