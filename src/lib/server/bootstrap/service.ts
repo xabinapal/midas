@@ -115,6 +115,21 @@ export async function performBootstrap(
 	const householdId = crypto.randomUUID();
 	const adminUserId = crypto.randomUUID();
 
+	await db
+		.insertInto("operation_roots")
+		.values({
+			id: operationId,
+			household_id: householdId,
+			actor_user_id: null,
+			operation_type: "bootstrap",
+			payload_fingerprint: crypto.randomUUID(),
+			status: "pending",
+			result_type: null,
+			created_at: nowIso,
+			completed_at: null,
+		})
+		.execute();
+
 	try {
 		await db
 			.insertInto("households")
@@ -197,6 +212,12 @@ export async function performBootstrap(
 			.updateTable("bootstrap_gate")
 			.set({ state: "complete", operation_id: null, lease_expires_at: null, completed_at: nowIso })
 			.where("id", "=", 1)
+			.execute();
+
+		await db
+			.updateTable("operation_roots")
+			.set({ status: "complete", completed_at: nowIso })
+			.where("id", "=", operationId)
 			.execute();
 
 		logger.info("bootstrap completed", { householdId, adminUserId });

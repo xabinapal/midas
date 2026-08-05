@@ -64,7 +64,7 @@ export const actions: Actions = {
 		const admin = await locals.db
 			.selectFrom("users")
 			.select(["id", "household_id", "username"])
-			.where("username", "=", form.data.adminUsername.toLowerCase().trim())
+			.where("username", "=", form.data.adminUsername)
 			.where("is_administrator", "=", 1)
 			.executeTakeFirst();
 

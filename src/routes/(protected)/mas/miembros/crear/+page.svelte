@@ -45,6 +45,21 @@
 					{/if}
 				</label>
 
+				<label class="fieldset" for="defaultWeight">
+					<span class="fieldset-legend">Peso de reparto por defecto</span>
+					<input
+						id="defaultWeight"
+						name="defaultWeight"
+						type="number"
+						min="0"
+						class="input min-h-12 w-full"
+						bind:value={data.form.data.defaultWeight}
+					/>
+					{#if activeForm.errors.defaultWeight}
+						<p class="label text-error">{activeForm.errors.defaultWeight}</p>
+					{/if}
+				</label>
+
 				{#if activeForm.message}
 					<div class="alert alert-error" role="alert">{activeForm.message}</div>
 				{/if}
