@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { createMemberRepository } from "$lib/server/household/repository";
-import { withGate, isGateConflict } from "$lib/server/operations/with-gate";
+import { withGate, isGateConflict, isGateError } from "$lib/server/operations/with-gate";
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const householdId = locals.user!.householdId;
@@ -57,22 +57,22 @@ export const actions: Actions = {
 		const db = locals.db;
 		const repo = createMemberRepository(db);
 
-		const member = await repo.findById(memberId);
-		if (!verifyMemberOwnership(member, householdId)) return { success: false, reason: "not_found" };
-		if (!member!.isActive) return { success: true };
-
-		const activeCount = await repo.countActiveByHousehold(householdId);
-		if (activeCount <= 2) return { success: false, reason: "last_members" };
-
-		const linkedUser = await db
-			.selectFrom("users")
-			.select(["id", "username"])
-			.where("member_id", "=", memberId)
-			.where("is_active", "=", 1)
-			.executeTakeFirst();
-		if (linkedUser) return { success: false, reason: "linked_user_active", linkedUsername: linkedUser.username };
-
 		const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
+			const member = await repo.findById(memberId);
+			if (!verifyMemberOwnership(member, householdId)) throw new Error("not_found");
+			if (!member!.isActive) return { ok: true, noop: true };
+
+			const activeCount = await repo.countActiveByHousehold(householdId);
+			if (activeCount <= 2) throw new Error("last_members");
+
+			const linkedUser = await db
+				.selectFrom("users")
+				.select(["id", "username"])
+				.where("member_id", "=", memberId)
+				.where("is_active", "=", 1)
+				.executeTakeFirst();
+			if (linkedUser) throw new Error("linked_user_active");
+
 			await repo.updateActive(memberId, false, new Date().toISOString());
 			await activityEvent(db, householdId, locals.user!.id, "member_deactivated", memberId, ctx.operationId, {
 				action: "deactivate",
@@ -80,6 +80,9 @@ export const actions: Actions = {
 			return { ok: true };
 		});
 		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
+		if (isGateError(outcome)) {
+			return { success: false, reason: outcome.error.message };
+		}
 		return { success: true };
 	},
 
@@ -118,9 +121,12 @@ export const actions: Actions = {
 		const hasRefs = await repo.hasFinancialReferences(memberId);
 		if (hasRefs) return { success: false, reason: "has_references" };
 
-		const outcome = await withGate(db, householdId, locals.user!.id, async () => {
+		const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
 			await db.deleteFrom("member_intervals").where("member_id", "=", memberId).execute();
 			await db.deleteFrom("members").where("id", "=", memberId).execute();
+			await activityEvent(db, householdId, locals.user!.id, "member_deleted", memberId, ctx.operationId, {
+				action: "delete",
+			});
 			return { ok: true };
 		});
 		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };

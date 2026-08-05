@@ -3,10 +3,21 @@
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
 
+	const reasonLabels: Record<string, string> = {
+		last_administrator: "No se puede realizar esta acción sobre el último administrador.",
+		not_found: "El usuario no existe o no pertenece al hogar.",
+		conflict: "Otra operación está en curso. Inténtalo de nuevo.",
+		member_already_linked: "Ese miembro ya tiene un usuario asociado.",
+		unauthorized: "No tienes permiso para realizar esta acción.",
+		username_exists: "El nombre de usuario ya existe.",
+		member_not_found: "El miembro no existe o no pertenece al hogar.",
+	};
+
 	let { data, form }: PageProps = $props();
 	let showCreate = $state(false);
 	let resetTarget = $state<string | null>(null);
 	let tempPassword = $state("");
+	const activeCreateForm = $derived(form?.createForm ?? data.createForm);
 </script>
 
 <svelte:head><title>Usuarios | {site.title}</title></svelte:head>
@@ -30,9 +41,7 @@
 
 	{#if form?.success === false}
 		<div class="alert alert-error" role="alert">
-			{form.reason === "last_administrator"
-				? "No se puede realizar esta acción sobre el último administrador."
-				: (form.reason ?? "Operación no permitida.")}
+			{reasonLabels[form.reason ?? ""] ?? "Operación no permitida."}
 		</div>
 	{/if}
 
@@ -48,8 +57,8 @@
 					method="POST"
 					action="?/create"
 					use:enhance={() => {
-						return async ({ update }) => {
-							showCreate = false;
+						return async ({ result, update }) => {
+							if (result.type === "success") showCreate = false;
 							await update();
 						};
 					}}
@@ -66,7 +75,7 @@
 							autocomplete="username"
 							required
 						/>
-						{#if data.createForm.errors.username}
+						{#if activeCreateForm.errors.username}
 							<p class="label text-error">{data.createForm.errors.username}</p>
 						{/if}
 					</label>
@@ -82,7 +91,7 @@
 							autocomplete="new-password"
 							required
 						/>
-						{#if data.createForm.errors.tempPassword}
+						{#if activeCreateForm.errors.tempPassword}
 							<p class="label text-error">{data.createForm.errors.tempPassword}</p>
 						{/if}
 					</label>
@@ -99,8 +108,8 @@
 						</label>
 					{/if}
 
-					{#if data.createForm.message}
-						<div class="alert alert-error" role="alert">{data.createForm.message}</div>
+					{#if activeCreateForm.message}
+						<div class="alert alert-error" role="alert">{activeCreateForm.message}</div>
 					{/if}
 
 					<button class="btn btn-primary min-h-12" type="submit">Crear usuario</button>

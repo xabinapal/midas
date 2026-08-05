@@ -14,6 +14,13 @@ export const householdMembersAndAccess: Migration = {
 			.addColumn("completed_at", "text")
 			.execute();
 
+		// Insert the singleton bootstrap gate row (replay-safe)
+		try {
+			await db.insertInto("bootstrap_gate").values({ id: 1, state: "available" }).execute();
+		} catch {
+			// Row already exists from previous run or preseed
+		}
+
 		await db.schema
 			.createTable("households")
 			.ifNotExists()

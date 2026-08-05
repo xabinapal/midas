@@ -1,6 +1,35 @@
 import type { PageServerLoad, Actions } from "./$types";
+import type { Kysely } from "kysely";
+import type { Database } from "$lib/server/database/schema";
 
 const NOW_ISO = () => new Date().toISOString();
+
+function insertSessionEvent(
+	db: Kysely<Database>,
+	householdId: string,
+	actorId: string | null,
+	type: string,
+	subjectId: string | null,
+	summary: Record<string, unknown>,
+) {
+	const nowIso = NOW_ISO();
+	return db
+		.insertInto("activity_events")
+		.values({
+			id: crypto.randomUUID(),
+			household_id: householdId,
+			event_type: type,
+			subject_type: "session",
+			subject_id: subjectId,
+			actor_user_id: actorId,
+			occurred_at: nowIso,
+			recorded_at: nowIso,
+			summary: JSON.stringify(summary),
+			operation_id: null,
+			correction_of_event_id: null,
+		})
+		.execute();
+}
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
@@ -24,6 +53,9 @@ export const actions: Actions = {
 		const sessionId = data.get("sessionId") as string;
 		if (sessionId === locals.sessionId) return { success: false, reason: "current" };
 		await locals.db.deleteFrom("sessions").where("id", "=", sessionId).where("user_id", "=", locals.user!.id).execute();
+		await insertSessionEvent(locals.db, locals.user!.householdId, locals.user!.id, "session_revoked", sessionId, {
+			action: "revoke_one",
+		});
 		return { success: true };
 	},
 
@@ -35,6 +67,9 @@ export const actions: Actions = {
 			.where("user_id", "=", userId)
 			.where("id", "!=", sessionId ?? "")
 			.execute();
+		await insertSessionEvent(locals.db, locals.user!.householdId, locals.user!.id, "session_revoked", null, {
+			action: "revoke_all_others",
+		});
 		return { success: true };
 	},
 
@@ -52,6 +87,10 @@ export const actions: Actions = {
 		if (!target) return { success: false, reason: "not_found" };
 
 		await locals.db.deleteFrom("sessions").where("user_id", "=", targetUserId).execute();
+		await insertSessionEvent(locals.db, locals.user.householdId, locals.user.id, "session_revoked", null, {
+			action: "admin_revoke_all",
+			targetUserId,
+		});
 		return { success: true };
 	},
 };

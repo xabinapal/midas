@@ -4,7 +4,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import { createMemberRepository, createHouseholdRepository } from "$lib/server/household/repository";
 import { createMemberService } from "$lib/server/household/service";
-import { withGate, isGateConflict } from "$lib/server/operations/with-gate";
+import { withGate, isGateConflict, isGateError } from "$lib/server/operations/with-gate";
 import type { Actions, PageServerLoad } from "./$types";
 
 const memberSchema = z.object({
@@ -56,6 +56,9 @@ export const actions: Actions = {
 
 			if (isGateConflict(outcome)) {
 				return message(form, "Otra operación está en curso. Inténtalo de nuevo.", { status: 409 });
+			}
+			if (isGateError(outcome)) {
+				return message(form, "No se pudo crear el miembro", { status: 400 });
 			}
 		} catch {
 			return message(form, "No se pudo crear el miembro", { status: 400 });

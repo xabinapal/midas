@@ -6,9 +6,12 @@ const EVENT_LABELS: Record<string, string> = {
 	member_created: "Miembro creado",
 	member_deactivated: "Miembro desactivado",
 	member_reactivated: "Miembro reactivado",
+	member_updated: "Miembro actualizado",
+	member_deleted: "Miembro eliminado",
 	user_created: "Usuario creado",
 	user_disabled: "Usuario desactivado",
 	user_reactivated: "Usuario reactivado",
+	user_member_link_changed: "Asociación de miembro cambiada",
 	password_reset: "Contraseña restablecida",
 	admin_granted: "Permisos de administrador concedidos",
 	admin_revoked: "Permisos de administrador revocados",
@@ -24,7 +27,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	let query = locals.db
 		.selectFrom("activity_events")
-		.innerJoin("users as actor", "actor.id", "activity_events.actor_user_id")
+		.leftJoin("users as actor", "actor.id", "activity_events.actor_user_id")
 		.select([
 			"activity_events.id",
 			"activity_events.event_type",

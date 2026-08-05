@@ -3,7 +3,7 @@ import { message, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import { hashPassword } from "$lib/server/auth/password";
-import { withGate, isGateConflict } from "$lib/server/operations/with-gate";
+import { withGate, isGateConflict, isGateError } from "$lib/server/operations/with-gate";
 import type { PageServerLoad, Actions } from "./$types";
 
 const createUserSchema = z.object({
@@ -90,6 +90,28 @@ export const actions: Actions = {
 		const db = locals.db;
 		const householdId = user.householdId;
 
+		// Validate member link before gate acquisition (same checks as linkMember)
+		if (form.data.memberId) {
+			const member = await db
+				.selectFrom("members")
+				.select(["id", "household_id"])
+				.where("id", "=", form.data.memberId)
+				.executeTakeFirst();
+			if (!member || member.household_id !== householdId) {
+				form.data.tempPassword = "";
+				return message(form, "El miembro seleccionado no existe o no pertenece al hogar", { status: 400 });
+			}
+			const alreadyLinked = await db
+				.selectFrom("users")
+				.select("id")
+				.where("member_id", "=", form.data.memberId)
+				.executeTakeFirst();
+			if (alreadyLinked) {
+				form.data.tempPassword = "";
+				return message(form, "Ese miembro ya tiene un usuario asociado", { status: 400 });
+			}
+		}
+
 		const outcome = await withGate(db, householdId, user.id, async (ctx) => {
 			const existing = await db
 				.selectFrom("users")
@@ -124,6 +146,12 @@ export const actions: Actions = {
 
 		form.data.tempPassword = "";
 		if (isGateConflict(outcome)) return message(form, "Otra operación está en curso.", { status: 409 });
+		if (isGateError(outcome)) {
+			if (outcome.error.message === "username_exists") {
+				return message(form, "El nombre de usuario ya existe", { status: 400 });
+			}
+			return message(form, "No se pudo crear el usuario", { status: 400 });
+		}
 		return { success: true };
 	},
 
@@ -134,24 +162,23 @@ export const actions: Actions = {
 		const db = locals.db;
 		const householdId = user.householdId;
 
-		const target = await db
-			.selectFrom("users")
-			.select(["id", "household_id", "is_administrator"])
-			.where("id", "=", targetUserId)
-			.executeTakeFirst();
-		if (!target || target.household_id !== householdId) return { success: false, reason: "not_found" };
-		if (target.is_administrator === 1) {
-			const adminRows = await db
-				.selectFrom("users")
-				.select("id")
-				.where("household_id", "=", householdId)
-				.where("is_active", "=", 1)
-				.where("is_administrator", "=", 1)
-				.execute();
-			if (adminRows.length <= 1) return { success: false, reason: "last_administrator" };
-		}
-
 		const outcome = await withGate(db, householdId, user.id, async (ctx) => {
+			const target = await db
+				.selectFrom("users")
+				.select(["id", "household_id", "is_administrator"])
+				.where("id", "=", targetUserId)
+				.executeTakeFirst();
+			if (!target || target.household_id !== householdId) throw new Error("not_found");
+			if (target.is_administrator === 1) {
+				const adminRows = await db
+					.selectFrom("users")
+					.select("id")
+					.where("household_id", "=", householdId)
+					.where("is_active", "=", 1)
+					.where("is_administrator", "=", 1)
+					.execute();
+				if (adminRows.length <= 1) throw new Error("last_administrator");
+			}
 			const nowIso = new Date().toISOString();
 			await db.updateTable("users").set({ is_active: 0, updated_at: nowIso }).where("id", "=", targetUserId).execute();
 			await db.deleteFrom("sessions").where("user_id", "=", targetUserId).execute();
@@ -161,6 +188,9 @@ export const actions: Actions = {
 			return { ok: true };
 		});
 		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
+		if (isGateError(outcome)) {
+			return { success: false, reason: outcome.error.message };
+		}
 		return { success: true };
 	},
 
@@ -201,25 +231,23 @@ export const actions: Actions = {
 		const db = locals.db;
 		const householdId = user.householdId;
 
-		const target = await db
-			.selectFrom("users")
-			.select(["id", "household_id", "is_administrator"])
-			.where("id", "=", targetUserId)
-			.executeTakeFirst();
-		if (!target || target.household_id !== householdId) return { success: false, reason: "not_found" };
-
-		if (!makeAdmin && target.is_administrator === 1) {
-			const adminRows = await db
-				.selectFrom("users")
-				.select("id")
-				.where("household_id", "=", householdId)
-				.where("is_active", "=", 1)
-				.where("is_administrator", "=", 1)
-				.execute();
-			if (adminRows.length <= 1) return { success: false, reason: "last_administrator" };
-		}
-
 		const outcome = await withGate(db, householdId, user.id, async (ctx) => {
+			const target = await db
+				.selectFrom("users")
+				.select(["id", "household_id", "is_administrator"])
+				.where("id", "=", targetUserId)
+				.executeTakeFirst();
+			if (!target || target.household_id !== householdId) throw new Error("not_found");
+			if (!makeAdmin && target.is_administrator === 1) {
+				const adminRows = await db
+					.selectFrom("users")
+					.select("id")
+					.where("household_id", "=", householdId)
+					.where("is_active", "=", 1)
+					.where("is_administrator", "=", 1)
+					.execute();
+				if (adminRows.length <= 1) throw new Error("last_administrator");
+			}
 			await db
 				.updateTable("users")
 				.set({ is_administrator: makeAdmin ? 1 : 0, updated_at: new Date().toISOString() })
@@ -237,6 +265,9 @@ export const actions: Actions = {
 			return { ok: true };
 		});
 		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
+		if (isGateError(outcome)) {
+			return { success: false, reason: outcome.error.message };
+		}
 		return { success: true };
 	},
 

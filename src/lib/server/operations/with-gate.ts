@@ -11,25 +11,25 @@ export interface GateSuccessResult<T> {
 	result: T;
 }
 
-export type GateResult<T> = GateConflictResult | GateSuccessResult<T>;
+export interface GateErrorResult {
+	conflict: false;
+	error: Error;
+}
+
+export type GateResult<T> = GateConflictResult | GateSuccessResult<T> | GateErrorResult;
 
 export function isGateConflict<T>(result: GateResult<T>): result is GateConflictResult {
 	return result.conflict === true;
 }
 
+export function isGateError<T>(result: GateResult<T>): result is GateErrorResult {
+	return !result.conflict && "error" in result;
+}
+
 /**
  * Acquires the household command gate, runs the mutation, and releases the gate.
- * Returns { conflict: true } if the gate is held; the caller should retry or
- * show a conflict message.
- *
- * Usage in a route action:
- *
- * const outcome = await withGate(db, householdId, userId, async (ctx) => {
- *     // do writes, reference ctx.operationId in activity events
- *     return { success: true };
- * });
- * if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
- * return outcome.result;
+ * Returns { conflict: true } if the gate is held.
+ * Errors thrown by the mutation are caught and returned as { error }.
  */
 export async function withGate<T>(
 	db: Kysely<Database>,
@@ -49,6 +49,6 @@ export async function withGate<T>(
 		return { conflict: false, result };
 	} catch (error) {
 		await failOperation(db, ctx);
-		throw error;
+		return { conflict: false, error: error instanceof Error ? error : new Error(String(error)) };
 	}
 }
