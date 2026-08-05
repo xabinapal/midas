@@ -1,4 +1,5 @@
 import { fail, redirect } from "@sveltejs/kit";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
 import { message, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { passwordChangeSchema } from "$lib/auth/password-change-schema";
@@ -67,22 +68,14 @@ export const actions: Actions = {
 		const { token } = await createSession(db, userId, householdId);
 		cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(url.protocol === "https:"));
 
-		await db
-			.insertInto("activity_events")
-			.values({
-				id: crypto.randomUUID(),
-				household_id: householdId,
-				event_type: "password_changed",
-				subject_type: "user",
-				subject_id: userId,
-				actor_user_id: userId,
-				occurred_at: nowIso,
-				recorded_at: nowIso,
-				summary: JSON.stringify({ action: "own_password_change" }),
-				operation_id: null,
-				correction_of_event_id: null,
-			})
-			.execute();
+		await insertValidatedActivity(db, {
+			householdId,
+			eventType: "password_changed",
+			subjectType: "user",
+			subjectId: userId,
+			actorUserId: userId,
+			summary: { action: "own_password_change" },
+		});
 
 		logger.info("password changed", { userId });
 		throw redirect(303, "/");

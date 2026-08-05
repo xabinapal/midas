@@ -1,4 +1,5 @@
 import { fail, redirect } from "@sveltejs/kit";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
 import { message, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { recoverySchema } from "$lib/auth/recovery-schema";
@@ -76,6 +77,19 @@ export const actions: Actions = {
 
 		const nowIso = new Date().toISOString();
 		const tempHash = await hashPassword(form.data.tempPassword);
+		const operationId = crypto.randomUUID();
+
+		// Mark the credential consumed BEFORE mutating the user record,
+		// so a mid-operation failure cannot reuse the credential.
+		await locals.db
+			.insertInto("consumed_recovery_credentials")
+			.values({
+				digest: digestHex,
+				consumed_at: nowIso,
+				target_user_id: admin.id,
+				operation_id: operationId,
+			})
+			.execute();
 
 		await locals.db
 			.updateTable("users")
@@ -90,33 +104,15 @@ export const actions: Actions = {
 
 		await locals.db.deleteFrom("sessions").where("user_id", "=", admin.id).execute();
 
-		const operationId = crypto.randomUUID();
-		await locals.db
-			.insertInto("consumed_recovery_credentials")
-			.values({
-				digest: digestHex,
-				consumed_at: nowIso,
-				target_user_id: admin.id,
-				operation_id: operationId,
-			})
-			.execute();
-
-		await locals.db
-			.insertInto("activity_events")
-			.values({
-				id: crypto.randomUUID(),
-				household_id: admin.household_id,
-				event_type: "operator_recovery",
-				subject_type: "user",
-				subject_id: admin.id,
-				actor_user_id: null,
-				occurred_at: nowIso,
-				recorded_at: nowIso,
-				summary: JSON.stringify({ action: "recovery", target: admin.username }),
-				operation_id: operationId,
-				correction_of_event_id: null,
-			})
-			.execute();
+		await insertValidatedActivity(locals.db, {
+			householdId: admin.household_id,
+			eventType: "operator_recovery",
+			subjectType: "user",
+			subjectId: admin.id,
+			actorUserId: null,
+			summary: { action: "recovery", target: admin.username },
+			operationId: operationId,
+		});
 
 		logger.warn("operator recovery completed", { adminId: admin.id });
 

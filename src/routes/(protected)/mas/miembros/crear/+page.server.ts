@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createMemberRepository, createHouseholdRepository } from "$lib/server/household/repository";
 import { createMemberService } from "$lib/server/household/service";
 import { withGate, isGateConflict, isGateError } from "$lib/server/operations/with-gate";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
 import type { Actions, PageServerLoad } from "./$types";
 
 const memberSchema = z.object({
@@ -34,23 +35,15 @@ export const actions: Actions = {
 					{ displayName: form.data.displayName, defaultWeight: form.data.defaultWeight },
 					new Date().toISOString(),
 				);
-				const nowIso = new Date().toISOString();
-				await db
-					.insertInto("activity_events")
-					.values({
-						id: crypto.randomUUID(),
-						household_id: householdId,
-						event_type: "member_created",
-						subject_type: "member",
-						subject_id: member.id,
-						actor_user_id: locals.user!.id,
-						occurred_at: nowIso,
-						recorded_at: nowIso,
-						summary: JSON.stringify({ memberName: member.displayName }),
-						operation_id: ctx.operationId,
-						correction_of_event_id: null,
-					})
-					.execute();
+				await insertValidatedActivity(db, {
+					householdId,
+					eventType: "member_created",
+					subjectType: "member",
+					subjectId: member.id,
+					actorUserId: locals.user!.id,
+					summary: { memberName: member.displayName },
+					operationId: ctx.operationId,
+				});
 				return { memberId: member.id };
 			});
 

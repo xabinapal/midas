@@ -1,7 +1,7 @@
 # Session 001 — Midas Foundation + Household Members and Access
 
 **Date:** 2026-08-04 to 2026-08-06
-**Model:** GLM-5.2
+**Model:** GLM-5.2 (first session), Kimi K3 (second-review fixes)
 **Changes worked:** `establish-midas-experience-foundation` (archived), `manage-household-members-and-access` (in progress)
 
 ## What Was Done
@@ -117,7 +117,6 @@ Credentials: developer/development-password, user/development-password
 ### Known Test Debt
 
 - Route tests for miembros and usuarios use proxy-based mock DBs (fragile)
-- The `credentials.test.ts` tests exercise functions that routes don't use
 - No integration test for the full login → session → rotation → revocation flow
 - No test for the forced-password-change guard in hooks
 
@@ -143,7 +142,10 @@ e0d61d9 fix: wire operation gate into all mutating routes, amend spec
 84715e6 fix: remaining adversarial findings S1/S3/S4/W11, update handoff
 a9be586 feat: user-member link management with change and remove actions
 84d6b9b fix: bootstrap row, gate TOCTOU, user create UX, activity events
+f1fd926 fix: default allocation weights end-to-end (N-C4)
 ```
+
+Also fixed in uncommitted-then-committed batches (N-W3/N-W4/N-W5/N-W6/N-W10): docs rewrite for D1 sessions, dead credential service deletion, `insertValidatedActivity` adoption across all routes, recovery credential ordering, migration 0002 nullable-column comment.
 
 ### Second Adversarial Review (2026-08-05, Kimi K3)
 
@@ -154,53 +156,22 @@ A fresh adversarial review by a different model verified all previous fixes as g
 | N-C1  | Fresh DB bootstrap impossible — migration never inserts `bootstrap_gate` singleton row | **Fixed** — replay-safe singleton insert in migration 0002                                                                                    |
 | N-C2  | TOCTOU race — invariant checks (last admin, min members) outside gate                  | **Fixed** — all invariant reads moved inside `withGate` closure; `withGate` now catches errors as results instead of rethrowing               |
 | N-C3  | User create: 500 on duplicate, no form errors, unvalidated member link                 | **Fixed** — duplicate returns form error, create form uses `activeCreateForm`, member link validated before gate, panel stays open on failure |
-| N-C4  | Default weights broken: hardcoded 0, clobbered by lifecycle, no edit UI                | **Open**                                                                                                                                      |
+| N-C4  | Default weights broken: hardcoded 0, clobbered by lifecycle, no edit UI                | **Fixed** — weights read from `member_intervals`, preserved through lifecycle, edit UI on detail page (f1fd926)                               |
 | N-W1  | Activity history hides bootstrap/recovery events (inner join)                          | **Fixed** — `leftJoin`                                                                                                                        |
 | N-W2  | Missing activity events for member delete + session actions                            | **Fixed** — events added for all three session actions + member delete                                                                        |
-| N-W3  | user.household_id/member_id nullable without FKs                                       | **Open**                                                                                                                                      |
-| N-W4  | AGENTS.md still describes removed JWT auth model                                       | **Open**                                                                                                                                      |
-| N-W5  | Dead credential service with placeholder landmine                                      | **Open**                                                                                                                                      |
-| N-W6  | Activity validation bypassed by routes                                                 | **Open**                                                                                                                                      |
+| N-W3  | user.household_id/member_id nullable without FKs                                       | **Fixed** — nullable columns documented in migration 0002 (SQLite `ALTER TABLE ADD COLUMN` cannot add `NOT NULL` without default)             |
+| N-W4  | AGENTS.md still describes removed JWT auth model                                       | **Fixed** — AGENTS.md Authentication section + README.md rewritten for mandatory D1 sessions                                                  |
+| N-W5  | Dead credential service with placeholder landmine                                      | **Fixed** — deleted `credentials.ts`, `credentials.test.ts`, `credentials-repository.ts`                                                      |
+| N-W6  | Activity validation bypassed by routes                                                 | **Fixed** — `insertValidatedActivity` helper (`src/lib/server/activity/insert.ts`); all route inserts routed through `validateSummary`        |
 | N-W7  | Member delete unreachable, no confirmations                                            | **Open**                                                                                                                                      |
 | N-W8  | Bootstrap failure recovery diverges from spec                                          | **Open**                                                                                                                                      |
 | N-W9  | Raw English reason codes shown to users + 2 unlabeled event types                      | **Fixed** — `reasonLabels` map + all 17 event labels                                                                                          |
-| N-W10 | Recovery consumes credential after mutation                                            | **Open**                                                                                                                                      |
+| N-W10 | Recovery consumes credential after mutation                                            | **Fixed** — consumed credential digest inserted before user mutation                                                                          |
 
 ## Recommendations for Next Session
 
-1. **N-C4 is the most impactful remaining item** — default allocation weights are write-only and clobbered by lifecycle changes. This affects the household-funding capability's financial calculations.
+1. **N-W7** — member delete is only reachable from the list page; add a delete button on the member detail page with a confirmation dialog. Audit other destructive actions (session revoke, user disable) for confirmation dialogs.
 
-2. **N-W4 is a quick win** — update AGENTS.md Authentication section to describe mandatory D1 sessions instead of optional JWT.
+2. **N-W8** — bootstrap failure recovery: spec says a failed bootstrap must be retryable from the operation root; verify the pending-operation completion path handles mid-failure states.
 
-3. **N-W5 decision needed** — the `credentials.ts` functions are tested but unused by routes. Either wire routes through them or delete them.
-
-4. **N-W7** — add member delete button on detail page with confirmation dialog.
-
-5. **N-W10** — recovery route should insert the consumed credential digest before mutating the user record.
-
-| ID    | Issue                                                                                  | Status   |
-| ----- | -------------------------------------------------------------------------------------- | -------- |
-| N-C1  | Fresh DB bootstrap impossible — migration never inserts `bootstrap_gate` singleton row | **Open** |
-| N-C2  | TOCTOU race — invariant checks (last admin, min members) outside gate                  | **Open** |
-| N-C3  | User create: 500 on duplicate, no form errors, unvalidated member link                 | **Open** |
-| N-C4  | Default weights broken: hardcoded 0, clobbered by lifecycle, no edit UI                | **Open** |
-| N-W1  | Activity history hides bootstrap/recovery events (inner join)                          | **Open** |
-| N-W2  | Missing activity events for member delete + session actions                            | **Open** |
-| N-W3  | user.household_id/member_id nullable without FKs                                       | **Open** |
-| N-W4  | AGENTS.md still describes removed JWT auth model                                       | **Open** |
-| N-W5  | Dead credential service with placeholder landmine                                      | **Open** |
-| N-W6  | Activity validation bypassed by routes                                                 | **Open** |
-| N-W7  | Member delete unreachable, no confirmations                                            | **Open** |
-| N-W8  | Bootstrap failure recovery diverges from spec                                          | **Open** |
-| N-W9  | Raw English reason codes shown to users + 2 unlabeled event types                      | **Open** |
-| N-W10 | Recovery consumes credential after mutation                                            | **Open** |
-
-## Recommendations for Next Session
-
-1. **N-C1 is a production blocker** — bootstrap cannot work on any non-preseeded database. Insert the singleton row in migration 0002 replay-safely.
-
-2. **N-C2 undermines the gate** — the whole point of `withGate` is to serialize invariant checks with writes. Move all invariant reads INSIDE the gate closure.
-
-3. **N-C3 breaks user creation UX** — the create-user form has three independent defects: 500 on duplicate, invisible errors, unvalidated member link.
-
-4. **N-C4 means default weights are fiction** — they write but never read back, and lifecycle changes clobber them.
+3. **Final verification** — once N-W7/N-W8 land, run `opsx-verify` on `manage-household-members-and-access` and assess archive readiness.

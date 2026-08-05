@@ -1,6 +1,7 @@
 import type { PageServerLoad, Actions } from "./$types";
 import type { Kysely } from "kysely";
 import type { Database } from "$lib/server/database/schema";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
 
 const NOW_ISO = () => new Date().toISOString();
 
@@ -12,23 +13,14 @@ function insertSessionEvent(
 	subjectId: string | null,
 	summary: Record<string, unknown>,
 ) {
-	const nowIso = NOW_ISO();
-	return db
-		.insertInto("activity_events")
-		.values({
-			id: crypto.randomUUID(),
-			household_id: householdId,
-			event_type: type,
-			subject_type: "session",
-			subject_id: subjectId,
-			actor_user_id: actorId,
-			occurred_at: nowIso,
-			recorded_at: nowIso,
-			summary: JSON.stringify(summary),
-			operation_id: null,
-			correction_of_event_id: null,
-		})
-		.execute();
+	return insertValidatedActivity(db, {
+		householdId,
+		eventType: type,
+		subjectType: "session",
+		subjectId,
+		actorUserId: actorId,
+		summary,
+	});
 }
 
 export const load: PageServerLoad = async ({ locals }) => {

@@ -100,6 +100,10 @@ export const householdMembersAndAccess: Migration = {
 		// Users table gains household/member/lifecycle columns.
 		// ALTER TABLE ADD COLUMN has no IF NOT EXISTS in SQLite, so wrap each
 		// in a conditional try to make the migration replay-safe.
+		//
+		// NOTE: These columns are added as nullable text because SQLite's
+		// ALTER TABLE cannot add NOT NULL columns to existing tables.
+		// Application-level validation enforces non-null for new records.
 		for (const col of [
 			{
 				name: "household_id",

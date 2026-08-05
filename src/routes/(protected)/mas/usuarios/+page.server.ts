@@ -4,6 +4,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import { hashPassword } from "$lib/server/auth/password";
 import { withGate, isGateConflict, isGateError } from "$lib/server/operations/with-gate";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
 import type { PageServerLoad, Actions } from "./$types";
 
 const createUserSchema = z.object({
@@ -32,22 +33,15 @@ function insertActivity(
 	opId: string,
 	summary: Record<string, unknown>,
 ) {
-	return db
-		.insertInto("activity_events")
-		.values({
-			id: crypto.randomUUID(),
-			household_id: householdId,
-			event_type: type,
-			subject_type: "user",
-			subject_id: subjectId,
-			actor_user_id: actorId,
-			occurred_at: new Date().toISOString(),
-			recorded_at: new Date().toISOString(),
-			summary: JSON.stringify(summary),
-			operation_id: opId,
-			correction_of_event_id: null,
-		})
-		.execute();
+	return insertValidatedActivity(db, {
+		householdId,
+		eventType: type,
+		subjectType: "user",
+		subjectId,
+		actorUserId: actorId,
+		summary,
+		operationId: opId,
+	});
 }
 
 export const load: PageServerLoad = async ({ locals }) => {

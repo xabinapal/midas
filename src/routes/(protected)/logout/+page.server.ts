@@ -1,4 +1,5 @@
 import { redirect } from "@sveltejs/kit";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
 import { revokeSession, SESSION_COOKIE_NAME } from "$lib/server/auth/request";
 import type { Actions, PageServerLoad } from "./$types";
 
@@ -23,23 +24,14 @@ export const actions: Actions = {
 			secure: url.protocol === "https:",
 		});
 		if (householdId && userId) {
-			const nowIso = new Date().toISOString();
-			await locals.db
-				.insertInto("activity_events")
-				.values({
-					id: crypto.randomUUID(),
-					household_id: householdId,
-					event_type: "session_revoked",
-					subject_type: "user",
-					subject_id: userId,
-					actor_user_id: userId,
-					occurred_at: nowIso,
-					recorded_at: nowIso,
-					summary: JSON.stringify({ action: "logout" }),
-					operation_id: null,
-					correction_of_event_id: null,
-				})
-				.execute();
+			await insertValidatedActivity(locals.db, {
+				householdId,
+				eventType: "session_revoked",
+				subjectType: "user",
+				subjectId: userId,
+				actorUserId: userId,
+				summary: { action: "logout" },
+			});
 		}
 		redirect(303, "/login");
 	},

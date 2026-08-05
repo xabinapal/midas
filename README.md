@@ -13,7 +13,7 @@ KV storage.
 - **Cloudflare Workers** deployment via `@sveltejs/adapter-cloudflare` + Wrangler
 - **Cloudflare D1** database accessed through the **Kysely** ORM with code-based migrations
 - **Cloudflare KV** for globally distributed caches, configuration, preferences, and session data
-- **Internal authentication** with PBKDF2 password hashes and signed JWT cookies
+- **Internal authentication** with PBKDF2 password hashes and revocable D1 sessions
 - **TypeScript 6** in strict mode with `svelte-check`
 - **Prettier** + **ESLint 10** (flat config) for formatting and linting
 - **mise** for tool and task management (Node.js 26 + npm 12)
