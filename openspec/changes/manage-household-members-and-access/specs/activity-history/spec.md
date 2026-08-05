@@ -41,33 +41,23 @@ Active household users SHALL be able to view safe activity events for their hous
 - **WHEN** an active user opens the history for a household expense
 - **THEN** the application SHALL return that expense's ordered safe activity events and no unrelated household data
 
-### Requirement: Replay-Safe Multi-Record Operation
+### Requirement: Household Operation Gate
 
-Every mutating operation SHALL use a stable household-scoped operation identifier and an authoritative pending or complete state. Before domain writes, it SHALL acquire the household command gate through one conditional write matching the expected household version and an available or recoverable lease. At most one operation ID MAY hold the gate for a household. Competing IDs SHALL receive a conflict/retry result; an expired holder SHALL be recovered or safely abandoned before admission of another operation.
+Every mutating household operation SHALL acquire a per-household command gate before writing domain effects. The gate ensures at most one in-flight mutation per household at a time. If the gate is held by an unexpired lease, the operation SHALL return a conflict result. If the previous holder's lease has expired, it SHALL be reclaimed before the new operation proceeds.
 
-Domain versions and the activity event SHALL reference the admitted operation, and readers MUST select effects only from completed operations. Retrying an identifier with the same safe payload fingerprint SHALL complete missing idempotent writes or return the completed non-secret result; reuse with different input SHALL be rejected. Sensitive values MUST NOT enter the fingerprint and SHALL be staged only in their approved protected representation. Only the original actor or an authorized recovery service MAY resume a pending operation. An operation MUST NOT report success until its domain effects, required activity event, completed state, and command-gate release are durable.
+Each operation SHALL create a pending operation root, perform its domain writes and activity event referencing that root, then mark the root complete and release the gate. On failure after acquisition, the gate SHALL be released without marking the root complete. Expired or failed operations leave no visible domain effect; the user simply retries.
 
-When a completed operation's result includes a newly generated bearer token, the server MUST NOT persist or replay that token. A retry of that completed operation SHALL return a generic fresh-authentication-required result and SHALL require a new login operation to issue another token. This secret-result exception MUST NOT weaken idempotency of the completed relational effects.
+This requirement does not mandate payload fingerprinting, idempotent retry by operation identifier, or secret-result replay prevention. Those properties are deferred to a future hardening change if write-volume or reliability requirements demand them.
 
-#### Scenario: Worker fails during a multi-record operation
+#### Scenario: Worker fails during a mutation
 
-- **WHEN** execution stops after some child writes but before operation completion
-- **THEN** those pending effects SHALL remain invisible and retrying the same operation identifier SHALL safely complete or recover them without duplication
+- **WHEN** execution stops after the gate is acquired but before the operation root is marked complete
+- **THEN** the gate lease SHALL expire naturally and the next operation SHALL reclaim it; the incomplete operation's partial writes remain as-is and the user retries the action
 
-#### Scenario: Competing operations use different identifiers
+#### Scenario: Competing mutations
 
-- **WHEN** two isolates attempt household mutations from the same expected version
-- **THEN** one conditional gate acquisition SHALL succeed and the other SHALL receive a conflict without posting domain effects
-
-#### Scenario: Identifier is reused with different input
-
-- **WHEN** a completed or pending operation identifier is submitted with a different safe payload fingerprint
-- **THEN** the command SHALL be rejected rather than reinterpret the existing operation
-
-#### Scenario: Completed bearer issuance is retried
-
-- **WHEN** a response containing a new session bearer token is lost and the completed operation identifier is retried
-- **THEN** the server SHALL not replay or reconstruct the token and SHALL require a fresh login operation
+- **WHEN** two isolates attempt mutations on the same household simultaneously
+- **THEN** one SHALL acquire the gate and the other SHALL receive a conflict result without posting domain effects
 
 ### Requirement: Actor Preservation
 

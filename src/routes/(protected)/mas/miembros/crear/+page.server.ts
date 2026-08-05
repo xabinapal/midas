@@ -4,6 +4,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import { createMemberRepository, createHouseholdRepository } from "$lib/server/household/repository";
 import { createMemberService } from "$lib/server/household/service";
+import { withGate, isGateConflict } from "$lib/server/operations/with-gate";
 import type { Actions, PageServerLoad } from "./$types";
 
 const memberSchema = z.object({
@@ -21,33 +22,41 @@ export const actions: Actions = {
 		if (!form.valid) return fail(400, { form });
 
 		const db = locals.db;
+		const householdId = locals.user!.householdId;
 		const members = createMemberRepository(db);
 		const households = createHouseholdRepository(db);
 		const service = createMemberService(members, households);
 
 		try {
-			const member = await service.createMember(
-				locals.user!.householdId,
-				{ displayName: form.data.displayName, defaultWeight: form.data.defaultWeight },
-				new Date().toISOString(),
-			);
-			const nowIso = new Date().toISOString();
-			await db
-				.insertInto("activity_events")
-				.values({
-					id: crypto.randomUUID(),
-					household_id: locals.user!.householdId,
-					event_type: "member_created",
-					subject_type: "member",
-					subject_id: member.id,
-					actor_user_id: locals.user!.id,
-					occurred_at: nowIso,
-					recorded_at: nowIso,
-					summary: JSON.stringify({ memberName: member.displayName }),
-					operation_id: null,
-					correction_of_event_id: null,
-				})
-				.execute();
+			const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
+				const member = await service.createMember(
+					householdId,
+					{ displayName: form.data.displayName, defaultWeight: form.data.defaultWeight },
+					new Date().toISOString(),
+				);
+				const nowIso = new Date().toISOString();
+				await db
+					.insertInto("activity_events")
+					.values({
+						id: crypto.randomUUID(),
+						household_id: householdId,
+						event_type: "member_created",
+						subject_type: "member",
+						subject_id: member.id,
+						actor_user_id: locals.user!.id,
+						occurred_at: nowIso,
+						recorded_at: nowIso,
+						summary: JSON.stringify({ memberName: member.displayName }),
+						operation_id: ctx.operationId,
+						correction_of_event_id: null,
+					})
+					.execute();
+				return { memberId: member.id };
+			});
+
+			if (isGateConflict(outcome)) {
+				return message(form, "Otra operación está en curso. Inténtalo de nuevo.", { status: 409 });
+			}
 		} catch {
 			return message(form, "No se pudo crear el miembro", { status: 400 });
 		}
