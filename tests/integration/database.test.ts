@@ -7,7 +7,7 @@ import { createUsersRepository } from "../../src/lib/server/auth/repository";
 import { verifyPassword } from "../../src/lib/server/auth/password";
 import { digestBearerToken } from "../../src/lib/server/auth/session-tokens";
 import { createDatabase } from "../../src/lib/server/database/db";
-import { initial } from "../../src/lib/server/database/migrations/0001_initial";
+import { users } from "../../src/lib/server/database/migrations/0001_users";
 import { householdMembersAndAccess } from "../../src/lib/server/database/migrations/0002_household_members_and_access";
 import { runMigrations } from "../../src/lib/server/database/migrator";
 import type { Database } from "../../src/lib/server/database/schema";
@@ -122,8 +122,8 @@ describe.sequential("D1 integration", () => {
 	});
 
 	it("keeps the initial migration replay-safe", async () => {
-		await initial.up(db);
-		await initial.up(db);
+		await users.up(db);
+		await users.up(db);
 
 		await expect(db.selectFrom("users").selectAll().execute()).resolves.toEqual([]);
 	});

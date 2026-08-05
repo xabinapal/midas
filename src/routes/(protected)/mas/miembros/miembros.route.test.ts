@@ -14,11 +14,13 @@ const ADMIN_USER = {
 
 function chainable(result: unknown) {
 	const execute = vi.fn().mockResolvedValue(result);
+	const takeFirst = vi.fn().mockResolvedValue(Array.isArray(result) ? result[0] : result);
 	const self: Record<string, ReturnType<typeof vi.fn>> = {};
 	const make = () => {
 		const proxy = new Proxy(self, {
 			get: (_t, prop) => {
 				if (prop === "execute") return execute;
+				if (prop === "executeTakeFirst") return takeFirst;
 				if (prop === "then") return undefined;
 				return vi.fn(() => make());
 			},
@@ -39,8 +41,17 @@ describe("member list page", () => {
 	});
 
 	it("rejects deactivation when only two active members remain", async () => {
+		const member = { id: "m1", household_id: "hh-1", display_name: "Alex", is_active: 1 };
+		let membersCallCount = 0;
 		const db = {
-			selectFrom: () => chainable([{ id: "a" }, { id: "b" }]),
+			selectFrom: (table: string) => {
+				if (table === "users") return chainable([]);
+				if (table === "members") {
+					membersCallCount++;
+					return chainable(membersCallCount === 1 ? [member] : [{ id: "m1" }, { id: "m2" }]);
+				}
+				return chainable([]);
+			},
 			updateTable: () => chainable(undefined),
 			insertInto: () => chainable(undefined),
 		} as unknown as Kysely<Database>;

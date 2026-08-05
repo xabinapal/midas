@@ -86,14 +86,17 @@ export async function resolveRequestSession(
 
 	const rotatedAt = Math.floor(new Date(sessionRow.rotated_at).getTime() / 1000);
 	let rotatedToken: string | undefined;
+	let effectiveSessionId = sessionRow.id;
 
 	if (now - rotatedAt >= SESSION_ROTATE_AFTER_SECONDS) {
-		rotatedToken = await rotateSession(db, digest, user.id, user.householdId, now);
+		const rotation = await rotateSession(db, digest, user.id, user.householdId, now);
+		rotatedToken = rotation.token;
+		effectiveSessionId = rotation.sessionId;
 	}
 
 	return {
 		user,
-		sessionId: sessionRow.id,
+		sessionId: effectiveSessionId,
 		clearCookie: false,
 		rotatedToken,
 	};
@@ -133,12 +136,18 @@ async function rotateSession(
 	userId: string,
 	householdId: string,
 	now: number,
-): Promise<string> {
+): Promise<{ token: string; sessionId: string }> {
 	const newToken = generateBearerToken();
 	const newDigest = await digestBearerToken(newToken);
 	const sessionId = crypto.randomUUID();
 	const nowIso = new Date(now * 1000).toISOString();
 	const expiresIso = new Date((now + SESSION_DURATION_SECONDS) * 1000).toISOString();
+
+	const oldSession = await db
+		.selectFrom("sessions")
+		.select("created_at")
+		.where("token_digest", "=", oldDigest)
+		.executeTakeFirst();
 
 	await db.deleteFrom("sessions").where("token_digest", "=", oldDigest).execute();
 	await db
@@ -148,13 +157,13 @@ async function rotateSession(
 			user_id: userId,
 			household_id: householdId,
 			token_digest: newDigest,
-			created_at: nowIso,
+			created_at: oldSession?.created_at ?? nowIso,
 			rotated_at: nowIso,
 			expires_at: expiresIso,
 		})
 		.execute();
 
-	return newToken;
+	return { token: newToken, sessionId };
 }
 
 export async function revokeSession(db: Kysely<Database>, sessionId: string): Promise<void> {

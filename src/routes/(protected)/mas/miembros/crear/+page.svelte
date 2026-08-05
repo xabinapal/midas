@@ -4,8 +4,9 @@
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 	let submitting = $state(false);
+	const activeForm = $derived(form?.form ?? data.form);
 </script>
 
 <svelte:head><title>Nuevo miembro | {site.title}</title></svelte:head>
@@ -39,13 +40,13 @@
 						bind:value={data.form.data.displayName}
 						required
 					/>
-					{#if data.form.errors.displayName}
-						<p class="label text-error">{data.form.errors.displayName}</p>
+					{#if activeForm.errors.displayName}
+						<p class="label text-error">{activeForm.errors.displayName}</p>
 					{/if}
 				</label>
 
-				{#if data.form.message}
-					<div class="alert alert-error" role="alert">{data.form.message}</div>
+				{#if activeForm.message}
+					<div class="alert alert-error" role="alert">{activeForm.message}</div>
 				{/if}
 
 				<div class="flex gap-2">

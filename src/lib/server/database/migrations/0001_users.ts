@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import type { Migration } from "kysely/migration";
 
-export const initial: Migration = {
+export const users: Migration = {
 	async up(db: Kysely<any>): Promise<void> {
 		await db.schema
 			.createTable("users")

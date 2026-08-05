@@ -4,8 +4,9 @@
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 	let submitting = $state(false);
+	const activeForm = $derived(form?.form ?? data.form);
 </script>
 
 <svelte:head><title>Cambiar contraseña | {site.title}</title></svelte:head>
@@ -44,13 +45,13 @@
 							type="password"
 							autocomplete="current-password"
 							class="input min-h-12 w-full"
-							class:input-error={data.form.errors.currentPassword}
+							class:input-error={activeForm.errors.currentPassword}
 							bind:value={data.form.data.currentPassword}
-							aria-invalid={data.form.errors.currentPassword ? "true" : undefined}
+							aria-invalid={activeForm.errors.currentPassword ? "true" : undefined}
 							required
 						/>
-						{#if data.form.errors.currentPassword}
-							<p class="label text-error">{data.form.errors.currentPassword}</p>
+						{#if activeForm.errors.currentPassword}
+							<p class="label text-error">{activeForm.errors.currentPassword}</p>
 						{/if}
 					</label>
 
@@ -62,13 +63,13 @@
 							type="password"
 							autocomplete="new-password"
 							class="input min-h-12 w-full"
-							class:input-error={data.form.errors.newPassword}
+							class:input-error={activeForm.errors.newPassword}
 							bind:value={data.form.data.newPassword}
-							aria-invalid={data.form.errors.newPassword ? "true" : undefined}
+							aria-invalid={activeForm.errors.newPassword ? "true" : undefined}
 							required
 						/>
-						{#if data.form.errors.newPassword}
-							<p class="label text-error">{data.form.errors.newPassword}</p>
+						{#if activeForm.errors.newPassword}
+							<p class="label text-error">{activeForm.errors.newPassword}</p>
 						{/if}
 					</label>
 
@@ -80,18 +81,18 @@
 							type="password"
 							autocomplete="new-password"
 							class="input min-h-12 w-full"
-							class:input-error={data.form.errors.confirmPassword}
+							class:input-error={activeForm.errors.confirmPassword}
 							bind:value={data.form.data.confirmPassword}
-							aria-invalid={data.form.errors.confirmPassword ? "true" : undefined}
+							aria-invalid={activeForm.errors.confirmPassword ? "true" : undefined}
 							required
 						/>
-						{#if data.form.errors.confirmPassword}
-							<p class="label text-error">{data.form.errors.confirmPassword}</p>
+						{#if activeForm.errors.confirmPassword}
+							<p class="label text-error">{activeForm.errors.confirmPassword}</p>
 						{/if}
 					</label>
 
-					{#if data.form.message}
-						<div class="alert alert-error" role="alert">{data.form.message}</div>
+					{#if activeForm.message}
+						<div class="alert alert-error" role="alert">{activeForm.message}</div>
 					{/if}
 
 					<div class="flex gap-2">

@@ -11,7 +11,7 @@ describe("assertMigrationsResettable", () => {
 	it("accepts migrations with down methods", () => {
 		expect(() =>
 			assertMigrationsResettable({
-				"0001_initial": migration(async () => undefined),
+				"0001_users": migration(async () => undefined),
 			}),
 		).not.toThrow();
 	});
@@ -19,7 +19,7 @@ describe("assertMigrationsResettable", () => {
 	it("rejects migrations without down methods", () => {
 		expect(() =>
 			assertMigrationsResettable({
-				"0001_initial": migration(async () => undefined),
+				"0001_users": migration(async () => undefined),
 				"0002_irreversible": migration(),
 			}),
 		).toThrow("0002_irreversible");
@@ -30,9 +30,9 @@ describe("assertSuccessfulMigrationResults", () => {
 	it("rejects non-success migration results", () => {
 		expect(() =>
 			assertSuccessfulMigrationResults({
-				results: [{ migrationName: "0001_initial", direction: "Down", status: "NotExecuted" }],
+				results: [{ migrationName: "0001_users", direction: "Down", status: "NotExecuted" }],
 			}),
-		).toThrow("0001_initial");
+		).toThrow("0001_users");
 	});
 
 	it("rethrows migration errors", () => {

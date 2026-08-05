@@ -122,6 +122,15 @@ export const householdMembersAndAccess: Migration = {
 			}
 		}
 
+		// A member MUST NOT link to more than one user
+		await db.schema
+			.createIndex("idx_users_member_id_unique")
+			.ifNotExists()
+			.on("users")
+			.column("member_id")
+			.unique()
+			.execute();
+
 		// Revocable sessions — stores only SHA-256 digest, never the bearer token
 		await db.schema
 			.createTable("sessions")
@@ -197,6 +206,7 @@ export const householdMembersAndAccess: Migration = {
 		await db.schema.dropIndex("idx_sessions_digest").ifExists().execute();
 		await db.schema.dropIndex("idx_sessions_user").ifExists().execute();
 		await db.schema.dropTable("sessions").ifExists().execute();
+		await db.schema.dropIndex("idx_users_member_id_unique").ifExists().execute();
 		await db.schema.alterTable("users").dropColumn("requires_password_change").execute();
 		await db.schema.alterTable("users").dropColumn("is_administrator").execute();
 		await db.schema.alterTable("users").dropColumn("is_active").execute();

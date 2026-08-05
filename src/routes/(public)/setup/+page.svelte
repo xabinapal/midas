@@ -3,8 +3,9 @@
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
 	let submitting = $state(false);
+	const activeForm = $derived(form?.form ?? data.form);
 </script>
 
 <svelte:head><title>Configuración inicial | {site.title}</title></svelte:head>
@@ -39,13 +40,13 @@
 							name="bootstrapCredential"
 							type="password"
 							class="input min-h-12 w-full"
-							class:input-error={data.form.errors.bootstrapCredential}
+							class:input-error={activeForm.errors.bootstrapCredential}
 							bind:value={data.form.data.bootstrapCredential}
 							autocomplete="off"
 							required
 						/>
-						{#if data.form.errors.bootstrapCredential}
-							<p class="label text-error">{data.form.errors.bootstrapCredential}</p>
+						{#if activeForm.errors.bootstrapCredential}
+							<p class="label text-error">{activeForm.errors.bootstrapCredential}</p>
 						{/if}
 					</label>
 
@@ -62,8 +63,8 @@
 							placeholder="Piso, Casa..."
 							required
 						/>
-						{#if data.form.errors.householdName}
-							<p class="label text-error">{data.form.errors.householdName}</p>
+						{#if activeForm.errors.householdName}
+							<p class="label text-error">{activeForm.errors.householdName}</p>
 						{/if}
 					</label>
 
@@ -94,8 +95,8 @@
 							bind:value={data.form.data.member2Name}
 							required
 						/>
-						{#if data.form.errors.member2Name}
-							<p class="label text-error">{data.form.errors.member2Name}</p>
+						{#if activeForm.errors.member2Name}
+							<p class="label text-error">{activeForm.errors.member2Name}</p>
 						{/if}
 					</label>
 
@@ -123,8 +124,8 @@
 							autocomplete="username"
 							required
 						/>
-						{#if data.form.errors.adminUsername}
-							<p class="label text-error">{data.form.errors.adminUsername}</p>
+						{#if activeForm.errors.adminUsername}
+							<p class="label text-error">{activeForm.errors.adminUsername}</p>
 						{/if}
 					</label>
 
@@ -139,13 +140,13 @@
 							autocomplete="new-password"
 							required
 						/>
-						{#if data.form.errors.adminPassword}
-							<p class="label text-error">{data.form.errors.adminPassword}</p>
+						{#if activeForm.errors.adminPassword}
+							<p class="label text-error">{activeForm.errors.adminPassword}</p>
 						{/if}
 					</label>
 
-					{#if data.form.message}
-						<div class="alert alert-error" role="alert">{data.form.message}</div>
+					{#if activeForm.message}
+						<div class="alert alert-error" role="alert">{activeForm.message}</div>
 					{/if}
 
 					<button class="btn btn-primary min-h-12 w-full" disabled={submitting}>
