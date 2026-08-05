@@ -96,7 +96,7 @@ export const actions: Actions = {
 				subjectType: "member",
 				subjectId: member.id,
 				actorUserId: locals.user!.id,
-				summary: { memberName: member.displayName, action: "delete" },
+				summary: { memberName: member.displayName },
 				operationId: ctx.operationId,
 			});
 			return { ok: true };

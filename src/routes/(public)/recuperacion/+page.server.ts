@@ -110,7 +110,7 @@ export const actions: Actions = {
 			subjectType: "user",
 			subjectId: admin.id,
 			actorUserId: null,
-			summary: { action: "recovery", target: admin.username },
+			summary: { username: admin.username },
 			operationId: operationId,
 		});
 

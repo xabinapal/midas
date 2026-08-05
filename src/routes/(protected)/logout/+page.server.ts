@@ -30,7 +30,7 @@ export const actions: Actions = {
 				subjectType: "user",
 				subjectId: userId,
 				actorUserId: userId,
-				summary: { action: "logout" },
+				summary: {},
 			});
 		}
 		redirect(303, "/login");

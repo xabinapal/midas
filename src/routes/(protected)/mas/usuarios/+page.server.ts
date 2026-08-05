@@ -159,7 +159,7 @@ export const actions: Actions = {
 		const outcome = await withGate(db, householdId, user.id, async (ctx) => {
 			const target = await db
 				.selectFrom("users")
-				.select(["id", "household_id", "is_administrator"])
+				.select(["id", "username", "household_id", "is_administrator"])
 				.where("id", "=", targetUserId)
 				.executeTakeFirst();
 			if (!target || target.household_id !== householdId) throw new Error("not_found");
@@ -177,7 +177,7 @@ export const actions: Actions = {
 			await db.updateTable("users").set({ is_active: 0, updated_at: nowIso }).where("id", "=", targetUserId).execute();
 			await db.deleteFrom("sessions").where("user_id", "=", targetUserId).execute();
 			await insertActivity(db, householdId, user.id, "user_disabled", targetUserId, ctx.operationId, {
-				action: "disable",
+				username: target.username,
 			});
 			return { ok: true };
 		});
@@ -197,7 +197,7 @@ export const actions: Actions = {
 
 		const target = await db
 			.selectFrom("users")
-			.select(["id", "household_id"])
+			.select(["id", "username", "household_id"])
 			.where("id", "=", targetUserId)
 			.executeTakeFirst();
 		if (!target || target.household_id !== householdId) return { success: false, reason: "not_found" };
@@ -209,7 +209,7 @@ export const actions: Actions = {
 				.where("id", "=", targetUserId)
 				.execute();
 			await insertActivity(db, householdId, user.id, "user_reactivated", targetUserId, ctx.operationId, {
-				action: "reactivate",
+				username: target.username,
 			});
 			return { ok: true };
 		});
@@ -228,7 +228,7 @@ export const actions: Actions = {
 		const outcome = await withGate(db, householdId, user.id, async (ctx) => {
 			const target = await db
 				.selectFrom("users")
-				.select(["id", "household_id", "is_administrator"])
+				.select(["id", "username", "household_id", "is_administrator"])
 				.where("id", "=", targetUserId)
 				.executeTakeFirst();
 			if (!target || target.household_id !== householdId) throw new Error("not_found");
@@ -254,7 +254,7 @@ export const actions: Actions = {
 				makeAdmin ? "admin_granted" : "admin_revoked",
 				targetUserId,
 				ctx.operationId,
-				{ action: makeAdmin ? "grant_admin" : "revoke_admin" },
+				{ username: target.username },
 			);
 			return { ok: true };
 		});
@@ -277,7 +277,7 @@ export const actions: Actions = {
 
 		const target = await db
 			.selectFrom("users")
-			.select(["id", "household_id"])
+			.select(["id", "username", "household_id"])
 			.where("id", "=", targetUserId)
 			.executeTakeFirst();
 		if (!target || target.household_id !== householdId) return { success: false, reason: "not_found" };
@@ -292,7 +292,7 @@ export const actions: Actions = {
 				.execute();
 			await db.deleteFrom("sessions").where("user_id", "=", targetUserId).execute();
 			await insertActivity(db, householdId, user.id, "password_reset", targetUserId, ctx.operationId, {
-				action: "admin_reset",
+				username: target.username,
 			});
 			return { ok: true };
 		});
@@ -310,18 +310,20 @@ export const actions: Actions = {
 
 		const target = await db
 			.selectFrom("users")
-			.select(["id", "household_id"])
+			.select(["id", "username", "household_id"])
 			.where("id", "=", targetUserId)
 			.executeTakeFirst();
 		if (!target || target.household_id !== householdId) return { success: false, reason: "not_found" };
 
+		let memberName: string | undefined;
 		if (memberId) {
 			const member = await db
 				.selectFrom("members")
-				.select(["id", "household_id"])
+				.select(["id", "display_name", "household_id"])
 				.where("id", "=", memberId)
 				.executeTakeFirst();
 			if (!member || member.household_id !== householdId) return { success: false, reason: "member_not_found" };
+			memberName = member.display_name;
 			const alreadyLinked = await db
 				.selectFrom("users")
 				.select("id")
@@ -338,7 +340,8 @@ export const actions: Actions = {
 				.where("id", "=", targetUserId)
 				.execute();
 			await insertActivity(db, householdId, user.id, "user_member_link_changed", targetUserId, ctx.operationId, {
-				memberId: memberId ?? "none",
+				username: target.username,
+				...(memberName !== undefined ? { memberName } : {}),
 			});
 			return { ok: true };
 		});

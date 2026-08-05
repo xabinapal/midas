@@ -41,7 +41,7 @@ export const actions: Actions = {
 			subjectType: "user",
 			subjectId: user.id,
 			actorUserId: user.id,
-			summary: { action: "login" },
+			summary: {},
 		});
 		if (user.requiresPasswordChange) redirect(303, "/cambiar-contrasena");
 		redirect(303, safeRedirectPath(url.searchParams.get("next")));

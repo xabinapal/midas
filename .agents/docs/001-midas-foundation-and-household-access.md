@@ -168,6 +168,27 @@ A fresh adversarial review by a different model verified all previous fixes as g
 | N-W9  | Raw English reason codes shown to users + 2 unlabeled event types                      | **Fixed** — `reasonLabels` map + all 17 event labels                                                                                                                                               |
 | N-W10 | Recovery consumes credential after mutation                                            | **Fixed** — consumed credential digest inserted before user mutation                                                                                                                               |
 
+## Audit Page Consistency Fix (2026-08-05, Kimi K3)
+
+User-reported inconsistency on `/mas/actividad`: user-action events showed a redundant `action` key instead of the affected username; member events showed raw `memberId` UUIDs (or `memberId: none` on member-unassign) with no other info.
+
+**Write path** — summaries now carry safe display names and drop redundant `action` keys:
+
+- `user_disabled`/`user_reactivated`/`password_reset`/`admin_granted`/`admin_revoked`: `{ username }`
+- `user_member_link_changed`: `{ username, memberName? }` (memberName only when assigning)
+- `member_deactivated`/`member_reactivated`: `{ memberName }`; `member_deleted`: `{ memberName }`
+- `session_created`/`session_revoked`/`password_changed`: `{}` (title + actor suffice)
+- `operator_recovery`: `{ username }`; admin session revoke: `{ username }`
+
+**Read path** — new pure module `src/lib/server/activity/display.ts` (`buildActivityDetails`, 10 unit tests):
+
+- Drops legacy `action`/`memberId`/`targetUserId` keys; maps `target`→"Usuario"
+- LEFT JOINs subject user/member names as fallback for pre-fix events
+- Skips the subject fallback for self-subject events (actor == subject) to avoid duplication
+- Summary names win over joined names (durable projection survives member deletion)
+
+This aligns with the spec's Actor Preservation requirement (safe display projection in historical activity).
+
 ## Recommendations for Next Session
 
 **All 20 second-review findings are now resolved.** Next steps:

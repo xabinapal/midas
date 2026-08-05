@@ -69,7 +69,7 @@ export const actions: Actions = {
 
 			await repo.updateActive(memberId, false, new Date().toISOString());
 			await activityEvent(db, householdId, locals.user!.id, "member_deactivated", memberId, ctx.operationId, {
-				action: "deactivate",
+				memberName: member!.displayName,
 			});
 			return { ok: true };
 		});
@@ -94,7 +94,7 @@ export const actions: Actions = {
 		const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
 			await repo.updateActive(memberId, true, new Date().toISOString());
 			await activityEvent(db, householdId, locals.user!.id, "member_reactivated", memberId, ctx.operationId, {
-				action: "reactivate",
+				memberName: member!.displayName,
 			});
 			return { ok: true };
 		});

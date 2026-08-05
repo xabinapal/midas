@@ -45,9 +45,7 @@ export const actions: Actions = {
 		const sessionId = data.get("sessionId") as string;
 		if (sessionId === locals.sessionId) return { success: false, reason: "current" };
 		await locals.db.deleteFrom("sessions").where("id", "=", sessionId).where("user_id", "=", locals.user!.id).execute();
-		await insertSessionEvent(locals.db, locals.user!.householdId, locals.user!.id, "session_revoked", sessionId, {
-			action: "revoke_one",
-		});
+		await insertSessionEvent(locals.db, locals.user!.householdId, locals.user!.id, "session_revoked", sessionId, {});
 		return { success: true };
 	},
 
@@ -59,9 +57,7 @@ export const actions: Actions = {
 			.where("user_id", "=", userId)
 			.where("id", "!=", sessionId ?? "")
 			.execute();
-		await insertSessionEvent(locals.db, locals.user!.householdId, locals.user!.id, "session_revoked", null, {
-			action: "revoke_all_others",
-		});
+		await insertSessionEvent(locals.db, locals.user!.householdId, locals.user!.id, "session_revoked", null, {});
 		return { success: true };
 	},
 
@@ -72,7 +68,7 @@ export const actions: Actions = {
 
 		const target = await locals.db
 			.selectFrom("users")
-			.select("household_id")
+			.select(["household_id", "username"])
 			.where("id", "=", targetUserId)
 			.where("household_id", "=", locals.user.householdId)
 			.executeTakeFirst();
@@ -80,8 +76,7 @@ export const actions: Actions = {
 
 		await locals.db.deleteFrom("sessions").where("user_id", "=", targetUserId).execute();
 		await insertSessionEvent(locals.db, locals.user.householdId, locals.user.id, "session_revoked", null, {
-			action: "admin_revoke_all",
-			targetUserId,
+			username: target.username,
 		});
 		return { success: true };
 	},

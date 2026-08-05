@@ -74,7 +74,7 @@ export const actions: Actions = {
 			subjectType: "user",
 			subjectId: userId,
 			actorUserId: userId,
-			summary: { action: "own_password_change" },
+			summary: {},
 		});
 
 		logger.info("password changed", { userId });
