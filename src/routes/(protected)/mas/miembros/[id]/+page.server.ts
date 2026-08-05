@@ -16,8 +16,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	if (!member || member.householdId !== locals.user!.householdId) {
 		throw error(404, "Miembro no encontrado");
 	}
+	const linkedUsers = await locals.db
+		.selectFrom("users")
+		.select(["id", "username", "is_active"])
+		.where("member_id", "=", params.id)
+		.execute();
 	return {
 		member,
+		linkedUsers,
 		form: await superValidate({ displayName: member.displayName }, zod4(editMemberSchema)),
 	};
 };

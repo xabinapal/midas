@@ -54,6 +54,18 @@
 					</button>
 				</div>
 			</form>
+
+			{#if data.linkedUsers.length > 0}
+				<div class="divider text-sm text-[var(--color-text-soft)]">Usuarios asociados</div>
+				<ul class="space-y-2">
+					{#each data.linkedUsers as linkedUser (linkedUser.id)}
+						<li class="flex items-center justify-between text-sm">
+							<span>{linkedUser.username}</span>
+							<span class="badge badge-sm badge-ghost">{linkedUser.is_active === 1 ? "Activo" : "Desactivado"}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
 	</div>
 </div>

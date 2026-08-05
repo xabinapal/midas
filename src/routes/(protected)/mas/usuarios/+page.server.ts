@@ -64,7 +64,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.selectFrom("members")
 		.select(["id", "display_name"])
 		.where("household_id", "=", householdId)
-		.where("is_active", "=", 1)
 		.execute();
 	const linkedMemberIds = users.filter((u) => u.member_id).map((u) => u.member_id!);
 	const memberNameMap = new Map(allMembers.map((m) => [m.id, m.display_name]));
@@ -269,6 +268,52 @@ export const actions: Actions = {
 			await db.deleteFrom("sessions").where("user_id", "=", targetUserId).execute();
 			await insertActivity(db, householdId, user.id, "password_reset", targetUserId, ctx.operationId, {
 				action: "admin_reset",
+			});
+			return { ok: true };
+		});
+		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
+		return { success: true };
+	},
+
+	linkMember: async ({ locals, request }) => {
+		const user = requireAdmin(locals);
+		const data = await request.formData();
+		const targetUserId = data.get("userId") as string;
+		const memberId = (data.get("memberId") as string) || null;
+		const db = locals.db;
+		const householdId = user.householdId;
+
+		const target = await db
+			.selectFrom("users")
+			.select(["id", "household_id"])
+			.where("id", "=", targetUserId)
+			.executeTakeFirst();
+		if (!target || target.household_id !== householdId) return { success: false, reason: "not_found" };
+
+		if (memberId) {
+			const member = await db
+				.selectFrom("members")
+				.select(["id", "household_id"])
+				.where("id", "=", memberId)
+				.executeTakeFirst();
+			if (!member || member.household_id !== householdId) return { success: false, reason: "member_not_found" };
+			const alreadyLinked = await db
+				.selectFrom("users")
+				.select("id")
+				.where("member_id", "=", memberId)
+				.where("id", "!=", targetUserId)
+				.executeTakeFirst();
+			if (alreadyLinked) return { success: false, reason: "member_already_linked" };
+		}
+
+		const outcome = await withGate(db, householdId, user.id, async (ctx) => {
+			await db
+				.updateTable("users")
+				.set({ member_id: memberId, updated_at: new Date().toISOString() })
+				.where("id", "=", targetUserId)
+				.execute();
+			await insertActivity(db, householdId, user.id, "user_member_link_changed", targetUserId, ctx.operationId, {
+				memberId: memberId ?? "none",
 			});
 			return { ok: true };
 		});

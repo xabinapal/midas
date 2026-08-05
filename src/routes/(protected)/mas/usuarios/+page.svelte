@@ -133,6 +133,8 @@
 						</div>
 						{#if user.member_id && data.memberNameMap?.get(user.member_id)}
 							<p class="text-sm text-[var(--color-text-soft)]">Miembro: {data.memberNameMap.get(user.member_id)}</p>
+						{:else if !user.member_id}
+							<p class="text-sm text-[var(--color-text-muted)]">Sin miembro asociado</p>
 						{/if}
 					</div>
 					<div class="flex flex-wrap gap-2">
@@ -172,6 +174,50 @@
 						{/if}
 					</div>
 				</div>
+
+				{#if user.is_active === 1}
+					<form
+						method="POST"
+						action="?/linkMember"
+						use:enhance={() => {
+							return async ({ update }) => {
+								await update();
+							};
+						}}
+						class="flex flex-wrap items-center gap-2 rounded-box bg-base-200 p-3"
+					>
+						<input type="hidden" name="userId" value={user.id} />
+						<label class="sr-only" for={`member-${user.id}`}>Cambiar miembro asociado</label>
+						<select id={`member-${user.id}`} name="memberId" class="select min-h-11 flex-1">
+							<option value="">Sin miembro</option>
+							{#each data.availableMembers as member (member.id)}
+								<option value={member.id} selected={user.member_id === member.id}>{member.display_name}</option>
+							{/each}
+							{#if user.member_id && data.memberNameMap?.get(user.member_id) && !data.availableMembers.some((m) => m.id === user.member_id)}
+								<option value={user.member_id} selected>{data.memberNameMap.get(user.member_id)}</option>
+							{/if}
+						</select>
+						<button class="btn btn-ghost btn-sm min-h-11" type="submit">
+							{user.member_id ? "Cambiar" : "Asociar"}
+						</button>
+						{#if user.member_id}
+							<button
+								class="btn btn-ghost btn-sm min-h-11"
+								type="button"
+								formnovalidate
+								onclick={(e) => {
+									const select = (e.target as HTMLElement)
+										.closest("form")
+										?.querySelector('select[name="memberId"]') as HTMLSelectElement | null;
+									if (select) select.value = "";
+									select?.closest("form")?.requestSubmit();
+								}}
+							>
+								Desvincular
+							</button>
+						{/if}
+					</form>
+				{/if}
 
 				{#if resetTarget === user.id}
 					<form

@@ -65,14 +65,15 @@ A thorough adversarial review was performed by a subagent. It found **6 CRITICAL
 
 All adversarial review findings (6 CRITICAL, 11 WARNING, 4 SUGGESTION) are now resolved.
 
-| ID  | Resolution                                                                                                                 |
-| --- | -------------------------------------------------------------------------------------------------------------------------- |
-| C6  | Amended spec to simplified "Household Operation Gate"; wired `withGate` into all 10 mutating route actions                 |
-| W9  | Route logic is inline inside `withGate` closures — tested `credentials.ts` functions remain as domain logic for future use |
-| W11 | Bootstrap now creates a pending operation root before entity writes and marks it complete on success                       |
-| S1  | Added `defaultWeight` number input to member create form                                                                   |
-| S3  | Member management is accessible to all authenticated household users per "equal financial access" — intentional            |
-| S4  | Recovery schema now uses `.transform(normalizeUsername)`                                                                   |
+| ID  | Resolution                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C6  | Amended spec to simplified "Household Operation Gate"; wired `withGate` into all 10 mutating route actions                                        |
+| W2  | Member↔user link now visible and fully manageable: dropdown to change association, "Desvincular" to remove; member detail page shows linked users |
+| W9  | Route logic is inline inside `withGate` closures — tested `credentials.ts` functions remain as domain logic for future use                        |
+| W11 | Bootstrap now creates a pending operation root before entity writes and marks it complete on success                                              |
+| S1  | Added `defaultWeight` number input to member create form                                                                                          |
+| S3  | Member management is accessible to all authenticated household users per "equal financial access" — intentional                                   |
+| S4  | Recovery schema now uses `.transform(normalizeUsername)`                                                                                          |
 
 ## Architecture Notes
 
@@ -137,16 +138,16 @@ f81ab0c feat: add management hub, member/user/session/activity screens
 ec56936 feat: session revocation UI, route tests, docs alignment
 f7155c1 fix: security, form display, session lifecycle, migration cleanup
 e1baa87 fix: admin session revocation, member links, activity page, member edit
+1c3f644 docs: add session handoff file and .agents/docs convention
+e0d61d9 fix: wire operation gate into all mutating routes, amend spec
+84715e6 fix: remaining adversarial findings S1/S3/S4/W11, update handoff
+a9be586 feat: user-member link management with change and remove actions
 ```
 
 ## Recommendations for Next Session
 
-1. **C6 is the biggest gap** — decide whether to wire the operation gate into all mutating routes or amend the spec to defer it. The current `activity-history` spec has an explicit "Replay-Safe Multi-Record Operation" requirement with scenarios for Worker failure recovery and concurrent operation IDs.
+1. **Browser testing** — the forced-password-change flow, rotation, session revocation, and member link management should be manually tested end-to-end in the browser.
 
-2. **W9 refactor** — replace inline route logic in `cambiar-contrasena`, `sesiones`, and `usuarios` with calls to the tested `credentials.ts` functions. This is a safety improvement.
+2. **Integration tests** — add a test that exercises: login → session creation → 4h+ rotation → stale token rejection → revocation → re-login.
 
-3. **S1 quick win** — add a `defaultWeight` number input to the member create form.
-
-4. **Browser testing** — the forced-password-change flow, rotation, and session revocation should be manually tested end-to-end in the browser.
-
-5. **Integration tests** — add a test that exercises: login → session creation → 4h+ rotation → stale token rejection → revocation → re-login.
+3. **Manage-financial-accounts-and-funding** — the next OpenSpec change in the sequence. The database foundation (household, members, users) is now solid.
