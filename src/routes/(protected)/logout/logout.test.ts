@@ -14,7 +14,10 @@ function createLogoutEvent() {
 		delete: deleteCookie,
 		serialize: vi.fn((name: string, value: string) => `${name}=${value}`),
 	} satisfies Cookies;
-	const db = { deleteFrom: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ execute: vi.fn() }) }) };
+	const db = {
+		deleteFrom: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ execute: vi.fn() }) }),
+		insertInto: vi.fn().mockReturnValue({ values: vi.fn().mockReturnValue({ execute: vi.fn() }) }),
+	};
 	const locals = {
 		db: db as unknown as Kysely<Database>,
 		kv: undefined,

@@ -26,11 +26,28 @@ export const actions: Actions = {
 		const service = createMemberService(members, households);
 
 		try {
-			await service.createMember(
+			const member = await service.createMember(
 				locals.user!.householdId,
 				{ displayName: form.data.displayName, defaultWeight: form.data.defaultWeight },
 				new Date().toISOString(),
 			);
+			const nowIso = new Date().toISOString();
+			await db
+				.insertInto("activity_events")
+				.values({
+					id: crypto.randomUUID(),
+					household_id: locals.user!.householdId,
+					event_type: "member_created",
+					subject_type: "member",
+					subject_id: member.id,
+					actor_user_id: locals.user!.id,
+					occurred_at: nowIso,
+					recorded_at: nowIso,
+					summary: JSON.stringify({ memberName: member.displayName }),
+					operation_id: null,
+					correction_of_event_id: null,
+				})
+				.execute();
 		} catch {
 			return message(form, "No se pudo crear el miembro", { status: 400 });
 		}

@@ -29,9 +29,8 @@
 					method="POST"
 					use:enhance={() => {
 						submitting = true;
-						return async ({ result, update }) => {
+						return async ({ update }) => {
 							submitting = false;
-							if (result.type === "redirect") return;
 							await update();
 						};
 					}}

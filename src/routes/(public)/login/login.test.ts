@@ -61,7 +61,9 @@ function createLoginEvent({
 	const event = {
 		cookies,
 		locals: {
-			db: {} as Kysely<Database>,
+			db: {
+				insertInto: vi.fn().mockReturnValue({ values: vi.fn().mockReturnValue({ execute: vi.fn() }) }),
+			} as unknown as Kysely<Database>,
 			kv: undefined,
 			user: null,
 			sessionId: null,

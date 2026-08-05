@@ -34,6 +34,23 @@ export const actions: Actions = {
 
 		const { token } = await createSession(locals.db, user.id, user.householdId);
 		cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(url.protocol === "https:"));
+		const nowIso = new Date().toISOString();
+		await locals.db
+			.insertInto("activity_events")
+			.values({
+				id: crypto.randomUUID(),
+				household_id: user.householdId,
+				event_type: "session_created",
+				subject_type: "user",
+				subject_id: user.id,
+				actor_user_id: user.id,
+				occurred_at: nowIso,
+				recorded_at: nowIso,
+				summary: JSON.stringify({ action: "login" }),
+				operation_id: null,
+				correction_of_event_id: null,
+			})
+			.execute();
 		if (user.requiresPasswordChange) redirect(303, "/cambiar-contrasena");
 		redirect(303, safeRedirectPath(url.searchParams.get("next")));
 	},
