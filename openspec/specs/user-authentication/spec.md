@@ -2,28 +2,18 @@
 
 ## Purpose
 
-Defines optional identity authentication, credential and session behavior, route enforcement, logout, revocation limits, and production deployment guidance.
+Defines mandatory identity authentication, credential and session behavior, route enforcement, logout, immediate revocation, and production deployment guidance.
 
 ## Requirements
 
-### Requirement: Optional Authentication Configuration
+### Requirement: Mandatory Authentication Configuration
 
-The application SHALL enable authentication only when the authentication flag, after trimming and case normalization, is `true`. An absent flag or `false` SHALL disable authentication. Any other value MUST fail closed. Enabled authentication MUST require a server-only signing secret containing at least 32 UTF-8 bytes; a missing or insufficient secret MUST fail closed.
+Midas SHALL require authentication for every application workflow except login, one-time setup, explicitly enabled operator-assisted recovery, crawler policy, and static application metadata. Authentication MUST NOT have a disabled bypass mode. Runtime initialization SHALL require authoritative relational access and a cryptographically secure random source for session generation. Protected requests MUST NOT proceed with a null user.
 
-#### Scenario: Authentication is disabled by default
+#### Scenario: Authentication configuration is missing
 
-- **WHEN** the authentication flag is absent or resolves to `false`
-- **THEN** authentication SHALL be disabled without requiring a signing secret
-
-#### Scenario: Authentication is enabled
-
-- **WHEN** the authentication flag resolves to `true` and the signing secret contains at least 32 UTF-8 bytes
-- **THEN** authentication SHALL be enabled using that secret for session signing and verification
-
-#### Scenario: Invalid configuration is supplied
-
-- **WHEN** the flag is neither `true` nor `false`, or enabled authentication lacks an adequate secret
-- **THEN** request initialization SHALL fail rather than continue with authentication disabled
+- **WHEN** runtime initialization lacks authoritative relational access or secure random session generation
+- **THEN** initialization SHALL fail and MUST NOT serve protected household data
 
 ### Requirement: Public and Protected Route Behavior
 
@@ -44,28 +34,9 @@ When authentication is enabled, public routes SHALL remain accessible without a 
 - **WHEN** an unauthenticated request targets a public route
 - **THEN** the authentication guard SHALL allow the route to apply its own behavior
 
-### Requirement: Disabled Authentication Mode
-
-When authentication is disabled, the application SHALL bypass authentication guards, expose a null authenticated user, and allow routes to operate without identity. Existing authentication cookies MUST be ignored and cleared. Login submissions MUST NOT validate credentials or issue sessions.
-
-#### Scenario: Protected route while authentication is disabled
-
-- **WHEN** authentication is disabled and a request targets a protected route
-- **THEN** the request SHALL proceed with a null authenticated user
-
-#### Scenario: Stale cookie while authentication is disabled
-
-- **WHEN** authentication is disabled and a request contains an authentication cookie
-- **THEN** the application SHALL ignore and clear the cookie without restoring identity
-
-#### Scenario: Login is submitted while authentication is disabled
-
-- **WHEN** a client submits credentials while authentication is disabled
-- **THEN** the application SHALL redirect without validating credentials or issuing a session
-
 ### Requirement: Credential Normalization and Validation
 
-Usernames SHALL be trimmed and normalized to lowercase before lookup. Canonical usernames MUST contain between 3 and 64 characters and only lowercase ASCII letters, digits, period, underscore, or hyphen. Passwords SHALL remain unchanged without trimming or case normalization and MUST contain between 1 and 128 characters.
+Usernames SHALL be trimmed and normalized to lowercase before lookup. Canonical usernames MUST contain between 3 and 64 characters and only lowercase ASCII letters, digits, period, underscore, or hyphen. Passwords SHALL remain unchanged without trimming or case normalization and MUST contain between 12 and 128 characters.
 
 #### Scenario: Username is normalized
 
@@ -75,26 +46,31 @@ Usernames SHALL be trimmed and normalized to lowercase before lookup. Canonical 
 #### Scenario: Credential shape is invalid
 
 - **WHEN** a submitted username or password violates its constraints
-- **THEN** login SHALL fail validation without issuing a session
+- **THEN** login or credential mutation SHALL fail validation without issuing a session or changing a hash
 
 ### Requirement: Generic Login Failures
 
-Unknown usernames and incorrect passwords SHALL produce the same status `401` invalid-credential response. Unknown usernames MUST still trigger password derivation against a valid dummy hash. Failed responses MUST remove the submitted password from returned form state. Successful authentication SHALL expose only the user identifier and stored username.
+Unknown usernames, disabled users, and incorrect passwords SHALL produce the same status `401` invalid-credential response. Unknown or disabled users MUST still trigger password derivation against a valid dummy hash. Failed responses MUST remove the submitted password from returned form state. Successful authentication SHALL expose only the user identifier, stored username, household identifier, administrator designation, forced-password-change state, and optional safe member projection.
 
 #### Scenario: Username is unknown
 
 - **WHEN** a valid login submission references a username that does not exist
 - **THEN** the application SHALL perform password derivation and return the generic invalid-credential response without revealing that the username is unknown
 
+#### Scenario: User is disabled
+
+- **WHEN** a valid login submission references a disabled user
+- **THEN** the application SHALL perform password derivation and return the same generic invalid-credential response
+
 #### Scenario: Password is incorrect
 
-- **WHEN** a valid login submission references an existing username with an incorrect password
+- **WHEN** a valid login submission references an active user with an incorrect password
 - **THEN** the application SHALL return the same generic response and omit the submitted password from returned state
 
 #### Scenario: Credentials are valid
 
-- **WHEN** the normalized username lookup finds a user and the password verifies
-- **THEN** authentication SHALL succeed with a user projection containing only identifier and username
+- **WHEN** the normalized username finds an active user and the password verifies
+- **THEN** authentication SHALL create a revocable session and expose only the defined safe projection
 
 ### Requirement: Password Storage
 
@@ -115,38 +91,47 @@ Passwords SHALL be stored only as salted PBKDF2-HMAC-SHA-256 hashes using 600,00
 - **WHEN** a stored password value is malformed or declares unsupported parameters
 - **THEN** password verification SHALL fail without treating the value as plaintext
 
-### Requirement: Signed Session Cookie
+### Requirement: Server-Validated Revocable Session
 
-Successful login SHALL issue an HS256-signed JWT with an eight-hour lifetime. The payload MUST contain only the user identifier, stored username, issued-at time, and expiration time. The token SHALL be stored in an `auth_session` cookie scoped to `/` with `HttpOnly`, `SameSite=Lax`, and an eight-hour maximum age. The cookie SHALL set `Secure` for HTTPS requests.
+Successful login SHALL issue a cryptographically random bearer token containing at least 256 bits of entropy in the `auth_session` cookie. The server SHALL store only a one-way digest of the token with session identifier, user identifier, creation, rotation, and expiration timestamps. Every protected request SHALL validate the session, active user, and household relationship against authoritative relational state.
 
-#### Scenario: Session is issued
+#### Scenario: Valid session reaches a protected route
 
-- **WHEN** valid credentials are submitted while authentication is enabled
-- **THEN** the application SHALL set the signed session cookie and redirect with status `303` to the validated return destination
+- **WHEN** the cookie token digest identifies an unexpired session for an active user
+- **THEN** the request SHALL receive the safe user and household projection
 
-#### Scenario: Session is issued over HTTPS
+#### Scenario: Revoked session is reused
 
-- **WHEN** the session cookie is issued for an HTTPS request
-- **THEN** it SHALL include `Secure`, `HttpOnly`, `SameSite=Lax`, and `Path=/`
+- **WHEN** a cookie identifies a revoked or missing session
+- **THEN** the application SHALL clear the cookie and treat the request as unauthenticated
 
-### Requirement: Session Validation and Sliding Expiration
+#### Scenario: Session issuance response is lost
 
-A session SHALL be accepted only when its token structure, HS256 header, signature, required payload fields, issued-at time, expiration, and exact eight-hour lifetime are valid. Invalid session cookies MUST be cleared and produce a null user. A valid session SHALL be refreshed once at least half its lifetime has elapsed, receiving a new issued-at time and eight-hour expiration.
+- **WHEN** a completed login or rotation response containing the only bearer-token copy is not received
+- **THEN** Midas SHALL require fresh login to issue a different session and MUST NOT persist or replay the lost bearer token
 
-#### Scenario: Session token is invalid
+### Requirement: Session Cookie and Sliding Rotation
 
-- **WHEN** a request contains a malformed, tampered, future-issued, expired, or otherwise invalid token
-- **THEN** the application SHALL treat the request as unauthenticated and clear the cookie
+The authentication cookie SHALL be scoped to `/` with `HttpOnly`, `SameSite=Lax`, an eight-hour maximum age, and `Secure` on HTTPS. A valid session SHALL expire eight hours after issuance or rotation and SHALL rotate its bearer token once at least four hours old. Rotation SHALL invalidate the previous token before returning the replacement.
 
-#### Scenario: Session is younger than four hours
+#### Scenario: Session reaches rotation threshold
 
-- **WHEN** a valid session is less than half its lifetime old
-- **THEN** the application SHALL accept it without replacing its token
+- **WHEN** a valid session is at least four hours old
+- **THEN** the application SHALL replace it with a new token and invalidate the previous token
 
-#### Scenario: Session reaches four hours
+#### Scenario: Session expires
 
-- **WHEN** a valid session is at least half its lifetime old
-- **THEN** the application SHALL accept it and issue a newly signed token valid for eight hours from refresh
+- **WHEN** a session is more than eight hours beyond issuance or rotation
+- **THEN** it SHALL be rejected and its cookie SHALL be cleared
+
+### Requirement: Immediate Security Revocation
+
+Disabling a user, resetting a user's password, or explicitly revoking a session SHALL make the affected sessions invalid for the next request. Changing one's own password SHALL revoke every other session and rotate the current session.
+
+#### Scenario: Disabled user reuses a cookie
+
+- **WHEN** a disabled user's formerly valid session cookie is presented
+- **THEN** session validation SHALL fail without waiting for cookie expiration
 
 ### Requirement: Safe Authentication Redirects
 
@@ -164,46 +149,37 @@ Login return destinations MUST begin with `/` and resolve to the application ori
 
 ### Requirement: POST Logout
 
-User-initiated logout SHALL terminate the current browser session only through a POST logout action. Loading a logout confirmation page MUST NOT clear the session. Invalid-token handling, disabled authentication, and signing-secret rotation MAY invalidate sessions independently of logout. A successful logout SHALL clear the session cookie, clear request-local identity, and redirect with status `303` to login.
+User-initiated logout SHALL terminate the current server-validated session only through a POST logout action. Loading a logout confirmation page MUST NOT revoke or clear the session. A successful logout SHALL revoke the authoritative current session before clearing the cookie and request-local identity, then redirect with status `303` to login. Reusing a copied token from that session MUST fail.
 
 #### Scenario: Logout page is loaded
 
 - **WHEN** an authenticated client loads the logout page without submitting it
-- **THEN** the current session SHALL remain intact
+- **THEN** the current session SHALL remain active
 
 #### Scenario: Logout is submitted
 
 - **WHEN** an authenticated client submits the logout POST action
-- **THEN** the application SHALL clear the session cookie and local user and redirect to login
+- **THEN** the application SHALL revoke the current session, clear the cookie and local user, and redirect to login
 
-### Requirement: Stateless Revocation Limits
+#### Scenario: Logged-out token is reused
 
-Session validation SHALL depend on the signed token and configured secret rather than a per-request user lookup. Changing or deleting a user MUST NOT be represented as immediate revocation of an independently retained token. Rotating the signing secret SHALL invalidate tokens signed with the previous secret.
+- **WHEN** the former session token is presented after successful logout
+- **THEN** session validation SHALL reject it
 
-#### Scenario: User changes after session issuance
+### Requirement: Equal Financial Access with Credential Administration
 
-- **WHEN** a valid token has been issued and its user record is changed or deleted
-- **THEN** the token MAY remain valid until expiration unless the signing secret changes
+Authentication SHALL establish household identity and administrator designation. Every active user SHALL satisfy household financial access equally. The administrator designation SHALL be evaluated only for user, credential, and cross-user session administration defined by the credential-management capability.
 
-#### Scenario: Signing secret rotates
+#### Scenario: Active users access financial route
 
-- **WHEN** the configured signing secret changes
-- **THEN** tokens signed with the previous secret SHALL fail validation
-
-### Requirement: Identity-Only Semantics
-
-Authentication SHALL establish identity only. It MUST NOT assign or evaluate roles, permissions, groups, ownership, privilege levels, or other authorization decisions. Every valid authenticated identity SHALL satisfy the authentication boundary equally.
-
-#### Scenario: Valid identity reaches a protected route
-
-- **WHEN** any user presents a valid session to a protected route
-- **THEN** the authentication guard SHALL admit the request without evaluating authorization attributes
+- **WHEN** an administrator and a non-administrator from the same household request the same financial workflow
+- **THEN** the authentication boundary SHALL admit both without applying financial roles
 
 ### Requirement: Production Login Protection Guidance
 
-Production deployment guidance MUST require edge rate limiting for login submissions and a Worker CPU limit selected from measured password-verification cost. The guidance MUST NOT recommend weakening the password work factor to resolve capacity constraints.
+Production deployment guidance MUST require edge rate limiting for login, bootstrap, and enabled recovery submissions and a Worker CPU limit selected from measured password-verification cost. The guidance MUST NOT recommend weakening the password work factor to resolve capacity constraints.
 
 #### Scenario: Production authentication is prepared
 
-- **WHEN** an operator prepares a production deployment that accepts login submissions
-- **THEN** deployment guidance SHALL require edge rate limiting and sufficient request CPU for password verification at the required work factor
+- **WHEN** an operator prepares a production deployment that accepts credential or setup submissions
+- **THEN** deployment guidance SHALL require edge rate limiting for every public credential endpoint and sufficient request CPU for password verification at the required work factor

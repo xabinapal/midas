@@ -203,12 +203,27 @@ Verification of all 26 delta requirements against the implementation found 1 CRI
 
 Notable implementation detail: `setError` from sveltekit-superforms returns `ActionFailure<{form}>` and must be returned **directly** from the action — wrapping it in `{ form: ... }` or `fail()` breaks the page's `form?.form` union type.
 
+## Archive (2026-08-05, Kimi K3)
+
+`manage-household-members-and-access` archived to `openspec/changes/archive/2026-08-05-manage-household-members-and-access/` after verification passed (post-fix).
+
+**Delta sync applied** to canonical specs:
+
+- **NEW** `activity-history` (6 requirements), `credential-management` (8), `household-management` (5) capability specs
+- **MODIFIED** `user-authentication`: removed 6 JWT/optional-auth requirements, replaced 4 (credential validation 12-char min, generic login failures with disabled users, POST logout server-validated, production guidance incl. bootstrap/recovery), added 5 (mandatory auth, server-validated session, sliding rotation, immediate revocation, equal financial access); Purpose updated
+- **MODIFIED** `relational-database`: User Relation now includes household/member/lifecycle fields and member-link uniqueness
+- **MODIFIED** `application-structure`: env separation covers bootstrap/recovery credentials and session bearer tokens
+
+All 9 canonical specs pass `openspec validate --specs --strict`. Four planned changes remain active: `manage-financial-accounts-and-funding`, `plan-and-record-expenses`, `reconcile-transfers-and-settlements`, `report-monthly-household-position` (all 0 tasks).
+
 ## Recommendations for Next Session
 
-**All 20 second-review findings are now resolved.** Next steps:
+The change is **archived and fully verified**. Priorities for what comes next:
 
-1. **Final verification** — run `opsx-verify` on `manage-household-members-and-access` and assess archive readiness.
+1. **Next planned change**: `manage-financial-accounts-and-funding` (0/20 tasks) is the natural successor — members, weights, and the operation gate are ready for it.
 
 2. **Known test debt** (non-blocking): proxy-based route-test mocks are fragile; no end-to-end login → rotation → revocation integration test; no forced-password-change guard test in hooks.
 
 3. **Spec note for future changes**: member deletion is intentionally rare — any member with activity events (including `member_created`) is preserved per the Historical Preservation requirement. Financial-reference checks activate when financial tables land in `manage-financial-accounts-and-funding`.
+
+4. **Session handoff hygiene**: start session 002's handoff file (`.agents/docs/002-*.md`) when work begins on the next change.
