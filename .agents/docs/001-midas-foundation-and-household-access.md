@@ -189,6 +189,20 @@ User-reported inconsistency on `/mas/actividad`: user-action events showed a red
 
 This aligns with the spec's Actor Preservation requirement (safe display projection in historical activity).
 
+## opsx-verify Findings and Fixes (2026-08-05, Kimi K3)
+
+Verification of all 26 delta requirements against the implementation found 1 CRITICAL, 2 WARNING, 2 SUGGESTION:
+
+| ID  | Finding                                                                              | Resolution                                                                                                                                                |
+| --- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | Total active weight > 0 never enforced (Default Allocation Weights SHALL)            | `MemberRepository.sumActiveWeight` + guards: deactivate route (`last_weight`), detail weight edit (form error, checked before any write), bootstrap input |
+| W1  | Inactive actor not distinguished in history UI (Actor Preservation)                  | Load selects `actor.is_active`; page renders "(inactivo)" suffix                                                                                          |
+| W2  | Spec text listed session "last-use" timestamp; design chose rotation-based lifecycle | Delta spec amended: "creation, rotation, and expiration timestamps" (matches design + schema)                                                             |
+| S1  | Activity ordering not fully deterministic for same-millisecond events                | Secondary `orderBy id desc` tie-breaker                                                                                                                   |
+| S2  | Currency validated as length-3 only                                                  | Accepted (setup-time config; no change path exists to guard)                                                                                              |
+
+Notable implementation detail: `setError` from sveltekit-superforms returns `ActionFailure<{form}>` and must be returned **directly** from the action — wrapping it in `{ form: ... }` or `fail()` breaks the page's `form?.form` union type.
+
 ## Recommendations for Next Session
 
 **All 20 second-review findings are now resolved.** Next steps:

@@ -26,7 +26,11 @@
 					<time class="text-sm text-[var(--color-text-muted)]">{formatDate(event.occurredAt)}</time>
 				</div>
 				{#if event.actorUsername}
-					<p class="text-sm text-[var(--color-text-soft)]">Por: {event.actorUsername}</p>
+					<p class="text-sm text-[var(--color-text-soft)]">
+						Por: {event.actorUsername}{#if event.actorIsActive === false}
+							<span class="text-[var(--color-text-muted)]">(inactivo)</span>
+						{/if}
+					</p>
 				{:else}
 					<p class="text-sm text-[var(--color-text-muted)]">Sistema</p>
 				{/if}

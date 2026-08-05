@@ -41,6 +41,7 @@ function mockMember(overrides: Partial<MemberRecord & { activeCount: number }> =
 		updateActive: vi.fn(),
 		updateWeight: vi.fn(),
 		countActiveByHousehold: vi.fn().mockResolvedValue(overrides.activeCount ?? 3),
+		sumActiveWeight: vi.fn().mockResolvedValue(100),
 		hasFinancialReferences: vi.fn().mockResolvedValue(false),
 		hasActivityReferences: vi.fn().mockResolvedValue(false),
 	} satisfies MemberRepository;

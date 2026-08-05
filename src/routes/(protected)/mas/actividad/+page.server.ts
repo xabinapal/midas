@@ -46,6 +46,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			"activity_events.occurred_at",
 			"activity_events.summary",
 			"actor.username as actor_username",
+			"actor.is_active as actor_is_active",
 			"subject_user.username as subject_username",
 			"subject_member.display_name as subject_member_name",
 		])
@@ -54,13 +55,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	if (eventType) query = query.where("activity_events.event_type", "=", eventType);
 	if (actorUserId) query = query.where("activity_events.actor_user_id", "=", actorUserId);
 
-	const rows = await query.orderBy("activity_events.occurred_at", "desc").limit(50).execute();
+	const rows = await query
+		.orderBy("activity_events.occurred_at", "desc")
+		.orderBy("activity_events.id", "desc")
+		.limit(50)
+		.execute();
 
 	const events = rows.map((row) => ({
 		id: row.id,
 		eventType: row.event_type,
 		occurredAt: row.occurred_at,
 		actorUsername: row.actor_username,
+		actorIsActive: row.actor_is_active === null ? null : row.actor_is_active === 1,
 		details: buildActivityDetails({
 			subjectType: row.subject_type,
 			subjectId: row.subject_id,

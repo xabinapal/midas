@@ -11,7 +11,7 @@ Midas SHALL require authentication for every application workflow except login, 
 
 ### Requirement: Server-Validated Revocable Session
 
-Successful login SHALL issue a cryptographically random bearer token containing at least 256 bits of entropy in the `auth_session` cookie. The server SHALL store only a one-way digest of the token with session identifier, user identifier, creation, last-use, and expiration timestamps. Every protected request SHALL validate the session, active user, and household relationship against authoritative relational state.
+Successful login SHALL issue a cryptographically random bearer token containing at least 256 bits of entropy in the `auth_session` cookie. The server SHALL store only a one-way digest of the token with session identifier, user identifier, creation, rotation, and expiration timestamps. Every protected request SHALL validate the session, active user, and household relationship against authoritative relational state.
 
 #### Scenario: Valid session reaches a protected route
 

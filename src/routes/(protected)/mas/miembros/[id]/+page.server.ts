@@ -1,5 +1,5 @@
 import { error, redirect } from "@sveltejs/kit";
-import { superValidate } from "sveltekit-superforms/server";
+import { setError, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import { createMemberRepository } from "$lib/server/household/repository";
@@ -46,6 +46,12 @@ export const actions: Actions = {
 
 		const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
 			const nowIso = new Date().toISOString();
+			if (form.data.defaultWeight !== member.defaultWeight && member.isActive) {
+				const totalActiveWeight = await repo.sumActiveWeight(householdId);
+				if (totalActiveWeight - member.defaultWeight + form.data.defaultWeight <= 0) {
+					throw new Error("last_weight");
+				}
+			}
 			await db
 				.updateTable("members")
 				.set({ display_name: form.data.displayName, updated_at: nowIso })
@@ -68,6 +74,13 @@ export const actions: Actions = {
 
 		if (isGateConflict(outcome)) {
 			return { form, conflict: true };
+		}
+		if (isGateError(outcome) && outcome.error.message === "last_weight") {
+			return setError(
+				form,
+				"defaultWeight",
+				"El peso total de reparto de los miembros activos debe ser mayor que cero",
+			);
 		}
 
 		throw redirect(303, "/mas/miembros");

@@ -67,6 +67,9 @@ export const actions: Actions = {
 				.executeTakeFirst();
 			if (linkedUser) throw new Error("linked_user_active");
 
+			const totalActiveWeight = await repo.sumActiveWeight(householdId);
+			if (totalActiveWeight - member!.defaultWeight <= 0) throw new Error("last_weight");
+
 			await repo.updateActive(memberId, false, new Date().toISOString());
 			await activityEvent(db, householdId, locals.user!.id, "member_deactivated", memberId, ctx.operationId, {
 				memberName: member!.displayName,

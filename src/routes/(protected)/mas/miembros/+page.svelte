@@ -22,6 +22,11 @@
 			No se puede desactivar: el hogar necesita al menos dos miembros activos.
 		</div>
 	{/if}
+	{#if form?.success === false && form.reason === "last_weight"}
+		<div class="alert alert-warning" role="alert">
+			No se puede desactivar: el peso total de reparto de los miembros activos debe ser mayor que cero.
+		</div>
+	{/if}
 
 	<div
 		class="divide-y divide-[var(--color-divider)] overflow-hidden rounded-box border border-[var(--color-border)] bg-base-100"

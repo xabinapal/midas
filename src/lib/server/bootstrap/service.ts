@@ -75,6 +75,15 @@ export async function performBootstrap(
 		return { success: false };
 	}
 
+	// Every active member needs a non-negative default weight and the household
+	// must start with a positive total active weight.
+	if (input.members.some((member) => member.defaultWeight < 0)) {
+		return { success: false };
+	}
+	if (input.members.reduce((sum, member) => sum + member.defaultWeight, 0) <= 0) {
+		return { success: false };
+	}
+
 	const operationId = crypto.randomUUID();
 	const leaseIso = new Date((now + GATE_LEASE_SECONDS) * 1000).toISOString();
 

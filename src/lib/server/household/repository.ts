@@ -49,6 +49,7 @@ export interface MemberRepository {
 	updateActive(memberId: string, isActive: boolean, now: string): Promise<void>;
 	updateWeight(memberId: string, weight: number, now: string): Promise<void>;
 	countActiveByHousehold(householdId: string): Promise<number>;
+	sumActiveWeight(householdId: string): Promise<number>;
 	hasFinancialReferences(memberId: string): Promise<boolean>;
 	hasActivityReferences(memberId: string): Promise<boolean>;
 }
@@ -204,6 +205,20 @@ export function createMemberRepository(db: Kysely<Database>): MemberRepository {
 				.where("is_active", "=", 1)
 				.execute();
 			return rows.length;
+		},
+
+		async sumActiveWeight(householdId) {
+			const rows = await db
+				.selectFrom("members")
+				.select("id")
+				.where("household_id", "=", householdId)
+				.where("is_active", "=", 1)
+				.execute();
+			let total = 0;
+			for (const row of rows) {
+				total += await currentWeight(db, row.id);
+			}
+			return total;
 		},
 
 		async hasFinancialReferences(memberId) {
