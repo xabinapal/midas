@@ -403,3 +403,26 @@ breakpoints` with `F5`. It runs `mise run dev` in VS Code's debug terminal and
 - **Keep stable docs accurate.** Update `README.md` when setup, commands, or
   supported runtimes change. Update `DESIGN.md` when the UI rules change. Don't
   let them drift from the code.
+
+## Session Handoff Documents
+
+Every working session that implements features, fixes bugs, or performs
+reviews SHALL create or update a handoff document under `.agents/docs/`.
+
+- **One file per session.** The file captures what was done, what was found,
+  what remains open, and what the next session should prioritize.
+- **Naming:** `NNN-short-description.md` where `NNN` is a zero-padded
+  sequence number starting at `001`.
+- **Content:** include the date, model, OpenSpec changes touched, a summary
+  of work performed, any adversarial review findings (with IDs and
+  status), architecture notes worth preserving, known test debt, commit
+  history, and recommendations for the next session.
+- **When to create:** at the end of every session that modifies application
+  code, performs verification, or runs an adversarial review. If the user
+  asks for verification, a review, or an audit, the handoff file from the
+  session being reviewed MUST be read first.
+- **When to read:** at the start of any session, review the most recent
+  handoff file to understand prior context, open issues, and
+  recommendations before starting new work.
+- **These files are version-controlled.** Do not add `.agents/docs/` to
+  `.gitignore`. Treat them as durable project memory.
