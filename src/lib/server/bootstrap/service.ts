@@ -95,6 +95,25 @@ export async function performBootstrap(
 			logger.warn("bootstrap rejected: gate held by active operation");
 			return { success: false };
 		}
+		// Recover the expired holder from its bootstrap operation root before
+		// allowing another attempt: close the stale root so the attempt ledger
+		// never leaves a permanently pending operation.
+		const expiredOperationId = gate?.operation_id;
+		if (expiredOperationId) {
+			const expiredRoot = await db
+				.selectFrom("operation_roots")
+				.select(["id", "status"])
+				.where("id", "=", expiredOperationId)
+				.executeTakeFirst();
+			if (expiredRoot && expiredRoot.status === "pending") {
+				await db
+					.updateTable("operation_roots")
+					.set({ status: "failed", result_type: "lease_expired", completed_at: new Date(now * 1000).toISOString() })
+					.where("id", "=", expiredRoot.id)
+					.execute();
+				logger.warn("bootstrap recovered expired operation root", { operationId: expiredRoot.id });
+			}
+		}
 		await db
 			.updateTable("bootstrap_gate")
 			.set({ state: "available", operation_id: null, lease_expires_at: null })
@@ -226,6 +245,13 @@ export async function performBootstrap(
 		logger.error("bootstrap failed during entity creation", {
 			error: error instanceof Error ? error.message : String(error),
 		});
+		// Close the pending operation root so a failed attempt stays retryable
+		// and the ledger reflects the failure instead of a permanent pending row.
+		await db
+			.updateTable("operation_roots")
+			.set({ status: "failed", result_type: "error", completed_at: nowIso })
+			.where("id", "=", operationId)
+			.execute();
 		await db
 			.updateTable("bootstrap_gate")
 			.set({ state: "available", operation_id: null, lease_expires_at: null })

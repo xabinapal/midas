@@ -50,6 +50,7 @@ export interface MemberRepository {
 	updateWeight(memberId: string, weight: number, now: string): Promise<void>;
 	countActiveByHousehold(householdId: string): Promise<number>;
 	hasFinancialReferences(memberId: string): Promise<boolean>;
+	hasActivityReferences(memberId: string): Promise<boolean>;
 }
 
 async function currentWeight(db: Kysely<Database>, memberId: string): Promise<number> {
@@ -208,6 +209,16 @@ export function createMemberRepository(db: Kysely<Database>): MemberRepository {
 		async hasFinancialReferences(memberId) {
 			const linked = await db.selectFrom("users").select("id").where("member_id", "=", memberId).executeTakeFirst();
 			return linked !== undefined;
+		},
+
+		async hasActivityReferences(memberId) {
+			const event = await db
+				.selectFrom("activity_events")
+				.select("id")
+				.where("subject_type", "=", "member")
+				.where("subject_id", "=", memberId)
+				.executeTakeFirst();
+			return event !== undefined;
 		},
 	};
 }

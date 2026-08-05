@@ -3,7 +3,8 @@ import { superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import { createMemberRepository } from "$lib/server/household/repository";
-import { withGate, isGateConflict } from "$lib/server/operations/with-gate";
+import { insertValidatedActivity } from "$lib/server/activity/insert";
+import { withGate, isGateConflict, isGateError } from "$lib/server/operations/with-gate";
 import type { Actions, PageServerLoad } from "./$types";
 
 const editMemberSchema = z.object({
@@ -53,28 +54,55 @@ export const actions: Actions = {
 			if (form.data.defaultWeight !== member.defaultWeight) {
 				await repo.updateWeight(params.id, form.data.defaultWeight, nowIso);
 			}
-			await db
-				.insertInto("activity_events")
-				.values({
-					id: crypto.randomUUID(),
-					household_id: householdId,
-					event_type: "member_updated",
-					subject_type: "member",
-					subject_id: params.id,
-					actor_user_id: locals.user!.id,
-					occurred_at: nowIso,
-					recorded_at: nowIso,
-					summary: JSON.stringify({ memberName: form.data.displayName, defaultWeight: form.data.defaultWeight }),
-					operation_id: ctx.operationId,
-					correction_of_event_id: null,
-				})
-				.execute();
+			await insertValidatedActivity(db, {
+				householdId,
+				eventType: "member_updated",
+				subjectType: "member",
+				subjectId: params.id,
+				actorUserId: locals.user!.id,
+				summary: { memberName: form.data.displayName, defaultWeight: form.data.defaultWeight },
+				operationId: ctx.operationId,
+			});
 			return { ok: true };
 		});
 
 		if (isGateConflict(outcome)) {
 			return { form, conflict: true };
 		}
+
+		throw redirect(303, "/mas/miembros");
+	},
+
+	delete: async ({ locals, params }) => {
+		const db = locals.db;
+		const householdId = locals.user!.householdId;
+		const repo = createMemberRepository(db);
+		const member = await repo.findById(params.id);
+		if (!member || member.householdId !== householdId) throw error(404, "Miembro no encontrado");
+
+		if (await repo.hasFinancialReferences(member.id)) {
+			return { deleteResult: { success: false, reason: "has_references" } };
+		}
+		if (await repo.hasActivityReferences(member.id)) {
+			return { deleteResult: { success: false, reason: "has_references" } };
+		}
+
+		const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
+			await db.deleteFrom("member_intervals").where("member_id", "=", member.id).execute();
+			await db.deleteFrom("members").where("id", "=", member.id).execute();
+			await insertValidatedActivity(db, {
+				householdId,
+				eventType: "member_deleted",
+				subjectType: "member",
+				subjectId: member.id,
+				actorUserId: locals.user!.id,
+				summary: { memberName: member.displayName, action: "delete" },
+				operationId: ctx.operationId,
+			});
+			return { ok: true };
+		});
+		if (isGateConflict(outcome)) return { deleteResult: { success: false, reason: "conflict" } };
+		if (isGateError(outcome)) return { deleteResult: { success: false, reason: outcome.error.message } };
 
 		throw redirect(303, "/mas/miembros");
 	},

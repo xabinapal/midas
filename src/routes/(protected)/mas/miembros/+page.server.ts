@@ -101,29 +101,4 @@ export const actions: Actions = {
 		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
 		return { success: true };
 	},
-
-	delete: async ({ locals, request }) => {
-		const data = await request.formData();
-		const memberId = data.get("memberId") as string;
-		const householdId = locals.user!.householdId;
-		const db = locals.db;
-		const repo = createMemberRepository(db);
-
-		const member = await repo.findById(memberId);
-		if (!verifyMemberOwnership(member, householdId)) return { success: false, reason: "not_found" };
-
-		const hasRefs = await repo.hasFinancialReferences(memberId);
-		if (hasRefs) return { success: false, reason: "has_references" };
-
-		const outcome = await withGate(db, householdId, locals.user!.id, async (ctx) => {
-			await db.deleteFrom("member_intervals").where("member_id", "=", memberId).execute();
-			await db.deleteFrom("members").where("id", "=", memberId).execute();
-			await activityEvent(db, householdId, locals.user!.id, "member_deleted", memberId, ctx.operationId, {
-				action: "delete",
-			});
-			return { ok: true };
-		});
-		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };
-		return { success: true };
-	},
 };

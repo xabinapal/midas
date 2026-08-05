@@ -2,10 +2,13 @@
 	import { enhance } from "$app/forms";
 	import { resolve } from "$app/paths";
 	import { site } from "$lib/site";
+	import ConfirmationDialog from "$lib/components/confirmation-dialog.svelte";
 	import type { PageProps } from "./$types";
 
 	let { data, form }: PageProps = $props();
 	let submitting = $state(false);
+	let deleteDialogOpen = $state(false);
+	let deleteFormEl: HTMLFormElement | undefined = $state();
 	const activeForm = $derived(form?.form ?? data.form);
 </script>
 
@@ -84,4 +87,49 @@
 			{/if}
 		</div>
 	</div>
+
+	<div class="card border border-[var(--color-border)] bg-base-100 shadow-[var(--shadow-raised)]">
+		<div class="card-body gap-4">
+			<h2 class="text-lg font-bold">Eliminar miembro</h2>
+			<p class="text-sm text-[var(--color-text-soft)]">
+				Solo se puede eliminar un miembro sin usuarios asociados ni referencias en el historial.
+			</p>
+			{#if form?.deleteResult?.success === false}
+				<div class="alert alert-warning" role="alert">
+					{#if form.deleteResult.reason === "has_references"}
+						No se puede eliminar: el miembro tiene usuarios asociados o referencias en el historial.
+					{:else}
+						No se pudo eliminar el miembro. Inténtalo de nuevo.
+					{/if}
+				</div>
+			{/if}
+			<form
+				method="POST"
+				action="?/delete"
+				bind:this={deleteFormEl}
+				use:enhance={() => {
+					return async ({ update }) => {
+						await update();
+					};
+				}}
+			>
+				<button class="btn btn-error min-h-12 w-full" type="button" onclick={() => (deleteDialogOpen = true)}>
+					Eliminar miembro
+				</button>
+			</form>
+		</div>
+	</div>
+
+	<ConfirmationDialog
+		open={deleteDialogOpen}
+		title="Eliminar miembro"
+		description="Esta acción es permanente y no se puede deshacer."
+		recordName={data.member.displayName}
+		confirmLabel="Eliminar"
+		onconfirm={() => {
+			deleteDialogOpen = false;
+			deleteFormEl?.requestSubmit();
+		}}
+		oncancel={() => (deleteDialogOpen = false)}
+	/>
 </div>
