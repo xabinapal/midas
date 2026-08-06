@@ -423,11 +423,18 @@ reviews SHALL create or update a handoff document under `.agents/docs/`.
 - **One file per session.** The file captures what was done, what was found,
   what remains open, and what the next session should prioritize.
 - **Naming:** `NNN-short-description.md` where `NNN` is a zero-padded
-  sequence number starting at `001`.
+  sequence number starting at `001`, assigned from the count of existing
+  handoff files (not from any estimate of the "session number").
 - **Content:** include the date, model, OpenSpec changes touched, a summary
   of work performed, any adversarial review findings (with IDs and
   status), architecture notes worth preserving, known test debt, commit
   history, and recommendations for the next session.
+- **Handoffs are owned by the orchestrating session only.** Subagents and
+  delegated tasks MUST NOT create, rename, or delete files under
+  `.agents/docs/`. When a subagent produces documentation or a handoff
+  draft, it returns that content in its final report, and the orchestrator
+  merges it into the single session handoff. Any handoff file a subagent
+  writes is a numbering conflict bug and must be merged and removed.
 - **When to create:** at the end of every session that modifies application
   code, performs verification, or runs an adversarial review. If the user
   asks for verification, a review, or an audit, the handoff file from the
