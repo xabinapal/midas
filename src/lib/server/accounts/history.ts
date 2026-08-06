@@ -1,9 +1,11 @@
 import type { ObservationStatus, TransferClassification, TransferStatus } from "$lib/accounts/model";
+import type { FundingSource } from "$lib/expenses/model";
 import type { AccountTransferRecord, BalanceObservationRecord } from "./repository";
+import type { PaymentRecord } from "../expenses/repository";
 
 export interface AccountHistoryItem {
 	id: string;
-	kind: "transfer" | "observation";
+	kind: "transfer" | "observation" | "payment";
 	effectiveAt: string;
 	recordedAt: string;
 	orderingKey: string;
@@ -24,6 +26,9 @@ export interface AccountHistoryItem {
 	observationId?: string;
 	observationStatus?: ObservationStatus;
 	replacesObservationId?: string | null;
+	paymentId?: string;
+	paymentStatus?: "posted" | "reversed";
+	fundingSource?: FundingSource;
 }
 
 export interface HistoryActor {
@@ -32,21 +37,22 @@ export interface HistoryActor {
 }
 
 /**
- * Deterministic chronological history of the transfers and observations
- * affecting one account. Items order by effective ordering key (latest
- * first), then by recorded timestamp and id for stable ties. Correction
- * links stay visible so original, reversal, and replacement can be traced.
- * Each item exposes a safe actor projection resolved from its operation
- * root; historical actors stay visible even after deactivation.
+ * Deterministic chronological history of the transfers, payments, and
+ * observations affecting one account. Items order by effective ordering key
+ * (latest first), then by recorded timestamp and id for stable ties.
+ * Correction links stay visible so original, reversal, and replacement can
+ * be traced. Each item exposes a safe actor projection resolved from its
+ * operation root; historical actors stay visible even after deactivation.
  */
 export function buildAccountHistory(input: {
 	accountId: string;
 	transfers: AccountTransferRecord[];
 	observations: BalanceObservationRecord[];
 	accountNames: Map<string, string>;
+	payments?: PaymentRecord[];
 	actors?: Map<string, HistoryActor>;
 }): AccountHistoryItem[] {
-	const { accountId, transfers, observations, accountNames, actors } = input;
+	const { accountId, transfers, observations, accountNames, payments = [], actors } = input;
 	const items: AccountHistoryItem[] = [];
 
 	const actorFor = (operationId: string | null): Pick<AccountHistoryItem, "actorUsername" | "actorIsActive"> => {
@@ -76,6 +82,29 @@ export function buildAccountHistory(input: {
 			reversalOfId: transfer.reversalOfId,
 			replacesId: transfer.replacesId,
 			reversedById: transfer.reversedById,
+		});
+	}
+
+	for (const payment of payments) {
+		// Reversal payment rows return the outflow to the account.
+		const restoring = payment.reversalOfId !== null;
+		items.push({
+			id: `payment-${payment.id}`,
+			kind: "payment",
+			effectiveAt: payment.effectiveAt,
+			recordedAt: payment.recordedAt,
+			orderingKey: payment.orderingKey,
+			...actorFor(payment.operationId),
+			paymentId: payment.id,
+			direction: restoring ? "in" : "out",
+			amountMinor: restoring ? payment.amountMinor : -payment.amountMinor,
+			description: payment.description,
+			fundingSource: payment.fundingSource,
+			paymentStatus: payment.status,
+			chainRootId: payment.chainRootId,
+			reversalOfId: payment.reversalOfId,
+			replacesId: payment.replacesId,
+			reversedById: payment.reversedById,
 		});
 	}
 

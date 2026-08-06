@@ -31,6 +31,7 @@ export interface ActivityHistoryFilters {
 	actorUserId?: string;
 	eventType?: string;
 	subjectId?: string;
+	subjectIds?: string[];
 }
 
 export interface ActivityRepository {
@@ -96,6 +97,9 @@ export function createActivityRepository(db: Kysely<Database>): ActivityReposito
 			}
 			if (filters?.subjectId) {
 				query = query.where("activity_events.subject_id", "=", filters.subjectId);
+			}
+			if (filters?.subjectIds && filters.subjectIds.length > 0) {
+				query = query.where("activity_events.subject_id", "in", filters.subjectIds);
 			}
 
 			const rows = await query

@@ -7,6 +7,17 @@ const APPLICATION_TABLES_IN_DELETE_ORDER = [
 	"consumed_recovery_credentials",
 	"activity_events",
 	"sessions",
+	"expense_evidence",
+	"payment_applications",
+	"payment_account_entries",
+	"payments",
+	"expense_allocation_params",
+	"expense_allocations",
+	"expenses",
+	"recurring_template_allocation_params",
+	"recurring_templates",
+	"reporting_periods",
+	"expense_categories",
 	"distribution_allocations",
 	"distributions",
 	"contribution_allocations",
@@ -35,6 +46,8 @@ export interface PreseedResult {
 	accounts: number;
 	transfers: number;
 	observations: number;
+	expenses: number;
+	payments: number;
 	username: string;
 }
 
@@ -602,6 +615,653 @@ export async function preseedDatabase(
 		})
 		.execute();
 
+	// ---- Expense and planning seed ----
+	// Varied categories, periods, templates, estimates, actuals, annual spans,
+	// member subsets, custom splits, shared/personal payments, partial and
+	// multi applications, cancellations, and full reversal chains.
+
+	const periodOf = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+	const shiftPeriod = (period: string, months: number) => {
+		const year = Number(period.slice(0, 4));
+		const month = Number(period.slice(5, 7));
+		return periodOf(new Date(Date.UTC(year, month - 1 + months, 1)));
+	};
+	const currentPeriod = periodOf(now());
+	const previousPeriod = shiftPeriod(currentPeriod, -1);
+
+	const viviendaCategoryId = createId();
+	const suministrosCategoryId = createId();
+	const supermercadoCategoryId = createId();
+	const segurosCategoryId = createId();
+	const ocioCategoryId = createId();
+	const telefoniaAntiguaCategoryId = createId();
+
+	const categories = [
+		{ id: viviendaCategoryId, name: "Vivienda", slug: "vivienda", ordering: 0, isActive: 1 },
+		{ id: suministrosCategoryId, name: "Suministros", slug: "suministros", ordering: 1, isActive: 1 },
+		{ id: supermercadoCategoryId, name: "Supermercado", slug: "supermercado", ordering: 2, isActive: 1 },
+		{ id: segurosCategoryId, name: "Seguros", slug: "seguros", ordering: 3, isActive: 1 },
+		{ id: ocioCategoryId, name: "Ocio", slug: "ocio", ordering: 4, isActive: 1 },
+		{ id: telefoniaAntiguaCategoryId, name: "Telefonía antigua", slug: "telefonia-antigua", ordering: 5, isActive: 0 },
+	];
+	await db
+		.insertInto("expense_categories")
+		.values(
+			categories.map((category) => ({
+				id: category.id,
+				household_id: householdId,
+				name: category.name,
+				slug: category.slug,
+				ordering: category.ordering,
+				is_active: category.isActive as 0 | 1,
+				created_at: timestamp,
+				updated_at: timestamp,
+				operation_id: null,
+			})),
+		)
+		.execute();
+
+	const currentPeriodId = createId();
+	const previousPeriodId = createId();
+	const customPeriodId = createId();
+	await db
+		.insertInto("reporting_periods")
+		.values([
+			{
+				id: previousPeriodId,
+				household_id: householdId,
+				slug: previousPeriod,
+				label: previousPeriod,
+				start_date: `${previousPeriod}-01`,
+				end_date: `${currentPeriod}-01`,
+				kind: "standard",
+				created_at: timestamp,
+				operation_id: null,
+			},
+			{
+				id: currentPeriodId,
+				household_id: householdId,
+				slug: currentPeriod,
+				label: currentPeriod,
+				start_date: `${currentPeriod}-01`,
+				end_date: `${shiftPeriod(currentPeriod, 1)}-01`,
+				kind: "standard",
+				created_at: timestamp,
+				operation_id: null,
+			},
+			{
+				id: customPeriodId,
+				household_id: householdId,
+				slug: "vacaciones-de-verano",
+				label: "Vacaciones de verano",
+				start_date: `${previousPeriod}-15`,
+				end_date: `${currentPeriod}-15`,
+				kind: "custom",
+				created_at: timestamp,
+				operation_id: null,
+			},
+		])
+		.execute();
+
+	const alquilerTemplateId = createId();
+	const seguroTemplateId = createId();
+	await db
+		.insertInto("recurring_templates")
+		.values([
+			{
+				id: alquilerTemplateId,
+				household_id: householdId,
+				category_id: viviendaCategoryId,
+				description: "Alquiler",
+				estimated_amount_minor: 90000,
+				cadence: "monthly",
+				interval_count: 1,
+				start_date: `${previousPeriod}-01`,
+				end_date: null,
+				due_day: null,
+				service_span_months: 1,
+				account_hint_id: sharedAccountId,
+				allocation_method: "equal",
+				status: "active",
+				created_at: timestamp,
+				updated_at: timestamp,
+				operation_id: null,
+			},
+			{
+				id: seguroTemplateId,
+				household_id: householdId,
+				category_id: segurosCategoryId,
+				description: "Seguro del hogar",
+				estimated_amount_minor: 120000,
+				cadence: "yearly",
+				interval_count: 1,
+				start_date: `${currentPeriod}-15`,
+				end_date: null,
+				due_day: null,
+				service_span_months: 12,
+				account_hint_id: null,
+				allocation_method: "default_weight",
+				status: "active",
+				created_at: timestamp,
+				updated_at: timestamp,
+				operation_id: null,
+			},
+		])
+		.execute();
+
+	await db
+		.insertInto("recurring_template_allocation_params")
+		.values([
+			{ id: createId(), template_id: alquilerTemplateId, member_id: adminMemberId, value: null },
+			{ id: createId(), template_id: alquilerTemplateId, member_id: regularMemberId, value: null },
+			{ id: createId(), template_id: seguroTemplateId, member_id: adminMemberId, value: null },
+			{ id: createId(), template_id: seguroTemplateId, member_id: regularMemberId, value: null },
+		])
+		.execute();
+
+	interface ExpenseSeed {
+		id: string;
+		categoryId: string;
+		reportingPeriodId: string;
+		description: string;
+		reference: string | null;
+		status: string;
+		plannedAmountMinor: number | null;
+		actualAmountMinor: number | null;
+		accountingDate: string;
+		dueDate?: string;
+		serviceStartDate?: string;
+		serviceEndDate?: string;
+		allocationMethod: string;
+		accountHintId?: string;
+		templateId?: string;
+		scheduledDueDate?: string;
+		chainRootId: string;
+		replacesId?: string;
+		reversedById?: string;
+	}
+
+	const alquilerOccurrenceId = createId();
+	const luzExpenseId = createId();
+	const compraExpenseId = createId();
+	const estimacionAguaExpenseId = createId();
+	const facturaAguaExpenseId = createId();
+	const seguroExpenseId = createId();
+	const telefoniaExpenseId = createId();
+	const comunidadOriginalId = createId();
+	const comunidadReplacementId = createId();
+	const regaloExpenseId = createId();
+	const hotelExpenseId = createId();
+
+	const expenseSeeds: ExpenseSeed[] = [
+		{
+			id: alquilerOccurrenceId,
+			categoryId: viviendaCategoryId,
+			reportingPeriodId: currentPeriodId,
+			description: "Alquiler",
+			reference: `vivienda/${currentPeriod}`,
+			status: "posted",
+			plannedAmountMinor: 90000,
+			actualAmountMinor: null,
+			accountingDate: `${currentPeriod}-01`,
+			dueDate: `${currentPeriod}-01`,
+			serviceStartDate: `${currentPeriod}-01`,
+			serviceEndDate: `${shiftPeriod(currentPeriod, 1)}-01`,
+			allocationMethod: "equal",
+			accountHintId: sharedAccountId,
+			templateId: alquilerTemplateId,
+			scheduledDueDate: `${currentPeriod}-01`,
+			chainRootId: alquilerOccurrenceId,
+		},
+		{
+			id: luzExpenseId,
+			categoryId: suministrosCategoryId,
+			reportingPeriodId: currentPeriodId,
+			description: "Factura de la luz",
+			reference: `suministros/${currentPeriod}`,
+			status: "posted",
+			plannedAmountMinor: null,
+			actualAmountMinor: 8500,
+			accountingDate: `${currentPeriod}-03`,
+			dueDate: `${currentPeriod}-12`,
+			allocationMethod: "equal",
+			chainRootId: luzExpenseId,
+		},
+		{
+			id: compraExpenseId,
+			categoryId: supermercadoCategoryId,
+			reportingPeriodId: currentPeriodId,
+			description: "Compra semanal",
+			reference: `supermercado/${currentPeriod}`,
+			status: "posted",
+			plannedAmountMinor: null,
+			actualAmountMinor: 12345,
+			accountingDate: `${currentPeriod}-04`,
+			allocationMethod: "custom_weight",
+			chainRootId: compraExpenseId,
+		},
+		{
+			id: estimacionAguaExpenseId,
+			categoryId: suministrosCategoryId,
+			reportingPeriodId: currentPeriodId,
+			description: "Estimación del agua",
+			reference: `suministros/${currentPeriod}-2`,
+			status: "posted",
+			plannedAmountMinor: 4000,
+			actualAmountMinor: null,
+			accountingDate: `${currentPeriod}-05`,
+			allocationMethod: "percentage",
+			chainRootId: estimacionAguaExpenseId,
+		},
+		{
+			id: facturaAguaExpenseId,
+			categoryId: suministrosCategoryId,
+			reportingPeriodId: previousPeriodId,
+			description: "Factura del agua",
+			reference: `suministros/${previousPeriod}`,
+			status: "posted",
+			plannedAmountMinor: 4000,
+			actualAmountMinor: 4350,
+			accountingDate: `${previousPeriod}-20`,
+			allocationMethod: "equal",
+			chainRootId: facturaAguaExpenseId,
+		},
+		{
+			id: seguroExpenseId,
+			categoryId: segurosCategoryId,
+			reportingPeriodId: currentPeriodId,
+			description: "Seguro del hogar",
+			reference: `seguros/${currentPeriod}`,
+			status: "posted",
+			plannedAmountMinor: 120000,
+			actualAmountMinor: 120000,
+			accountingDate: `${currentPeriod}-15`,
+			dueDate: `${currentPeriod}-15`,
+			serviceStartDate: `${currentPeriod}-01`,
+			serviceEndDate: `${shiftPeriod(currentPeriod, 12)}-01`,
+			allocationMethod: "default_weight",
+			templateId: seguroTemplateId,
+			scheduledDueDate: `${currentPeriod}-15`,
+			chainRootId: seguroExpenseId,
+		},
+		{
+			id: telefoniaExpenseId,
+			categoryId: telefoniaAntiguaCategoryId,
+			reportingPeriodId: previousPeriodId,
+			description: "Teléfono fijo",
+			reference: `telefonia-antigua/${previousPeriod}`,
+			status: "posted",
+			plannedAmountMinor: null,
+			actualAmountMinor: 3000,
+			accountingDate: `${previousPeriod}-10`,
+			allocationMethod: "equal",
+			chainRootId: telefoniaExpenseId,
+		},
+		{
+			id: comunidadOriginalId,
+			categoryId: viviendaCategoryId,
+			reportingPeriodId: previousPeriodId,
+			description: "Comunidad de vecinos",
+			reference: `vivienda/${previousPeriod}`,
+			status: "reversed",
+			plannedAmountMinor: null,
+			actualAmountMinor: 6000,
+			accountingDate: `${previousPeriod}-08`,
+			allocationMethod: "equal",
+			chainRootId: comunidadOriginalId,
+			reversedById: comunidadReplacementId,
+		},
+		{
+			id: comunidadReplacementId,
+			categoryId: viviendaCategoryId,
+			reportingPeriodId: previousPeriodId,
+			description: "Comunidad de vecinos",
+			reference: `vivienda/${previousPeriod}`,
+			status: "posted",
+			plannedAmountMinor: null,
+			actualAmountMinor: 6500,
+			accountingDate: `${previousPeriod}-08`,
+			allocationMethod: "equal",
+			chainRootId: comunidadOriginalId,
+			replacesId: comunidadOriginalId,
+		},
+		{
+			id: regaloExpenseId,
+			categoryId: ocioCategoryId,
+			reportingPeriodId: currentPeriodId,
+			description: "Regalo de cumpleaños",
+			reference: `ocio/${currentPeriod}`,
+			status: "cancelled",
+			plannedAmountMinor: 5000,
+			actualAmountMinor: null,
+			accountingDate: `${currentPeriod}-18`,
+			allocationMethod: "equal",
+			chainRootId: regaloExpenseId,
+		},
+		{
+			id: hotelExpenseId,
+			categoryId: ocioCategoryId,
+			reportingPeriodId: customPeriodId,
+			description: "Hotel de vacaciones",
+			reference: "ocio/vacaciones-de-verano",
+			status: "posted",
+			plannedAmountMinor: null,
+			actualAmountMinor: 45000,
+			accountingDate: `${previousPeriod}-22`,
+			allocationMethod: "equal",
+			chainRootId: hotelExpenseId,
+		},
+	];
+
+	for (const seed of expenseSeeds) {
+		await db
+			.insertInto("expenses")
+			.values({
+				id: seed.id,
+				household_id: householdId,
+				category_id: seed.categoryId,
+				reporting_period_id: seed.reportingPeriodId,
+				description: seed.description,
+				reference: seed.reference,
+				status: seed.status,
+				planned_amount_minor: seed.plannedAmountMinor,
+				planned_version: 1,
+				actual_amount_minor: seed.actualAmountMinor,
+				accounting_date: seed.accountingDate,
+				due_date: seed.dueDate ?? null,
+				service_start_date: seed.serviceStartDate ?? null,
+				service_end_date: seed.serviceEndDate ?? null,
+				allocation_method: seed.allocationMethod,
+				account_hint_id: seed.accountHintId ?? null,
+				template_id: seed.templateId ?? null,
+				scheduled_due_date: seed.scheduledDueDate ?? null,
+				realized_by_expense_id: null,
+				chain_root_id: seed.chainRootId,
+				replaces_id: seed.replacesId ?? null,
+				reversed_by_id: null,
+				actor_user_id: null,
+				operation_id: null,
+				created_at: timestamp,
+				updated_at: timestamp,
+			})
+			.execute();
+	}
+
+	// Link reversed originals to their replacements once every expense exists
+	for (const seed of expenseSeeds) {
+		if (!seed.reversedById) continue;
+		await db.updateTable("expenses").set({ reversed_by_id: seed.reversedById }).where("id", "=", seed.id).execute();
+	}
+
+	interface AllocationSeed {
+		expenseId: string;
+		memberId: string;
+		basis: string;
+		amountMinor: number;
+	}
+
+	const half = (amount: number) => [Math.ceil(amount / 2), Math.floor(amount / 2)];
+	const allocationSeeds: AllocationSeed[] = [
+		{ expenseId: alquilerOccurrenceId, memberId: adminMemberId, basis: "planned", amountMinor: 45000 },
+		{ expenseId: alquilerOccurrenceId, memberId: regularMemberId, basis: "planned", amountMinor: 45000 },
+		{ expenseId: luzExpenseId, memberId: adminMemberId, basis: "actual", amountMinor: half(8500)[0]! },
+		{ expenseId: luzExpenseId, memberId: regularMemberId, basis: "actual", amountMinor: half(8500)[1]! },
+		{ expenseId: compraExpenseId, memberId: adminMemberId, basis: "actual", amountMinor: 8230 },
+		{ expenseId: compraExpenseId, memberId: regularMemberId, basis: "actual", amountMinor: 4115 },
+		{ expenseId: estimacionAguaExpenseId, memberId: adminMemberId, basis: "planned", amountMinor: 2000 },
+		{ expenseId: estimacionAguaExpenseId, memberId: regularMemberId, basis: "planned", amountMinor: 2000 },
+		{ expenseId: facturaAguaExpenseId, memberId: adminMemberId, basis: "planned", amountMinor: 2000 },
+		{ expenseId: facturaAguaExpenseId, memberId: regularMemberId, basis: "planned", amountMinor: 2000 },
+		{ expenseId: facturaAguaExpenseId, memberId: adminMemberId, basis: "actual", amountMinor: 2175 },
+		{ expenseId: facturaAguaExpenseId, memberId: regularMemberId, basis: "actual", amountMinor: 2175 },
+		{ expenseId: seguroExpenseId, memberId: adminMemberId, basis: "planned", amountMinor: 60000 },
+		{ expenseId: seguroExpenseId, memberId: regularMemberId, basis: "planned", amountMinor: 60000 },
+		{ expenseId: seguroExpenseId, memberId: adminMemberId, basis: "actual", amountMinor: 60000 },
+		{ expenseId: seguroExpenseId, memberId: regularMemberId, basis: "actual", amountMinor: 60000 },
+		{ expenseId: telefoniaExpenseId, memberId: adminMemberId, basis: "actual", amountMinor: 1500 },
+		{ expenseId: telefoniaExpenseId, memberId: regularMemberId, basis: "actual", amountMinor: 1500 },
+		{ expenseId: comunidadOriginalId, memberId: adminMemberId, basis: "actual", amountMinor: 3000 },
+		{ expenseId: comunidadOriginalId, memberId: regularMemberId, basis: "actual", amountMinor: 3000 },
+		{ expenseId: comunidadReplacementId, memberId: adminMemberId, basis: "actual", amountMinor: 3250 },
+		{ expenseId: comunidadReplacementId, memberId: regularMemberId, basis: "actual", amountMinor: 3250 },
+		{ expenseId: regaloExpenseId, memberId: adminMemberId, basis: "planned", amountMinor: 2500 },
+		{ expenseId: regaloExpenseId, memberId: regularMemberId, basis: "planned", amountMinor: 2500 },
+		{ expenseId: hotelExpenseId, memberId: adminMemberId, basis: "actual", amountMinor: 22500 },
+		{ expenseId: hotelExpenseId, memberId: regularMemberId, basis: "actual", amountMinor: 22500 },
+	];
+	for (let i = 0; i < allocationSeeds.length; i += 10) {
+		await db
+			.insertInto("expense_allocations")
+			.values(
+				allocationSeeds.slice(i, i + 10).map((seed) => ({
+					id: createId(),
+					expense_id: seed.expenseId,
+					member_id: seed.memberId,
+					basis: seed.basis,
+					amount_minor: seed.amountMinor,
+				})),
+			)
+			.execute();
+	}
+
+	await db
+		.insertInto("expense_allocation_params")
+		.values([
+			{ id: createId(), expense_id: alquilerOccurrenceId, member_id: adminMemberId, value: null },
+			{ id: createId(), expense_id: alquilerOccurrenceId, member_id: regularMemberId, value: null },
+			{ id: createId(), expense_id: luzExpenseId, member_id: adminMemberId, value: null },
+			{ id: createId(), expense_id: luzExpenseId, member_id: regularMemberId, value: null },
+			{ id: createId(), expense_id: compraExpenseId, member_id: adminMemberId, value: 2 },
+			{ id: createId(), expense_id: compraExpenseId, member_id: regularMemberId, value: 1 },
+			{ id: createId(), expense_id: estimacionAguaExpenseId, member_id: adminMemberId, value: 5000 },
+			{ id: createId(), expense_id: estimacionAguaExpenseId, member_id: regularMemberId, value: 5000 },
+			{ id: createId(), expense_id: facturaAguaExpenseId, member_id: adminMemberId, value: null },
+			{ id: createId(), expense_id: facturaAguaExpenseId, member_id: regularMemberId, value: null },
+			{ id: createId(), expense_id: seguroExpenseId, member_id: adminMemberId, value: null },
+			{ id: createId(), expense_id: seguroExpenseId, member_id: regularMemberId, value: null },
+		])
+		.execute();
+
+	interface PaymentSeed {
+		id: string;
+		accountId: string;
+		amountMinor: number;
+		description: string;
+		effectiveAt: string;
+		recordedAt: string;
+		fundingSource: string;
+		funderMemberId?: string;
+		status: string;
+		chainRootId: string;
+		reversalOfId?: string;
+		reversedById?: string;
+	}
+
+	const luzPaymentId = createId();
+	const seguroPaymentId = createId();
+	const multiPaymentId = createId();
+	const reversedPaymentOriginalId = createId();
+	const reversedPaymentReversalId = createId();
+
+	const paymentSeeds: PaymentSeed[] = [
+		{
+			id: luzPaymentId,
+			accountId: sharedAccountId,
+			amountMinor: 8500,
+			description: "Iberdrola",
+			effectiveAt: `${currentPeriod}-03T00:00:00.000Z`,
+			recordedAt: daysAgo(3),
+			fundingSource: "shared",
+			status: "posted",
+			chainRootId: luzPaymentId,
+		},
+		{
+			id: seguroPaymentId,
+			accountId: alexAccountId,
+			amountMinor: 50000,
+			description: "Seguro del hogar (primer plazo)",
+			effectiveAt: `${currentPeriod}-02T00:00:00.000Z`,
+			recordedAt: daysAgo(2),
+			fundingSource: "member",
+			funderMemberId: adminMemberId,
+			status: "posted",
+			chainRootId: seguroPaymentId,
+		},
+		{
+			id: multiPaymentId,
+			accountId: sharedAccountId,
+			amountMinor: 11000,
+			description: "Compra y reserva de hotel",
+			effectiveAt: `${currentPeriod}-01T00:00:00.000Z`,
+			recordedAt: daysAgo(1),
+			fundingSource: "shared",
+			status: "posted",
+			chainRootId: multiPaymentId,
+		},
+		{
+			id: reversedPaymentOriginalId,
+			accountId: samAccountId,
+			amountMinor: 2000,
+			description: "Pago duplicado de farmacia",
+			effectiveAt: `${currentPeriod}-04T00:00:00.000Z`,
+			recordedAt: daysAgo(4),
+			fundingSource: "member",
+			funderMemberId: regularMemberId,
+			status: "reversed",
+			chainRootId: reversedPaymentOriginalId,
+			reversedById: reversedPaymentReversalId,
+		},
+		{
+			id: reversedPaymentReversalId,
+			accountId: samAccountId,
+			amountMinor: 2000,
+			description: "Pago duplicado de farmacia",
+			effectiveAt: `${currentPeriod}-04T00:00:00.000Z`,
+			recordedAt: daysAgo(3),
+			fundingSource: "member",
+			funderMemberId: regularMemberId,
+			status: "posted",
+			chainRootId: reversedPaymentOriginalId,
+			reversalOfId: reversedPaymentOriginalId,
+		},
+	];
+
+	for (const seed of paymentSeeds) {
+		await db
+			.insertInto("payments")
+			.values({
+				id: seed.id,
+				household_id: householdId,
+				account_id: seed.accountId,
+				amount_minor: seed.amountMinor,
+				description: seed.description,
+				effective_at: seed.effectiveAt,
+				ordering_key: orderingKeyFor(seed.effectiveAt, seed.chainRootId),
+				recorded_at: seed.recordedAt,
+				funding_source: seed.fundingSource,
+				funder_member_id: seed.funderMemberId ?? null,
+				status: seed.status,
+				chain_root_id: seed.chainRootId,
+				reversal_of_id: seed.reversalOfId ?? null,
+				replaces_id: null,
+				reversed_by_id: null,
+				actor_user_id: null,
+				operation_id: null,
+				created_at: seed.recordedAt,
+			})
+			.execute();
+	}
+
+	// Link reversed originals to their reversals once every payment exists
+	for (const seed of paymentSeeds) {
+		if (!seed.reversedById) continue;
+		await db.updateTable("payments").set({ reversed_by_id: seed.reversedById }).where("id", "=", seed.id).execute();
+	}
+
+	for (const seed of paymentSeeds) {
+		await db
+			.insertInto("payment_account_entries")
+			.values({
+				id: createId(),
+				account_id: seed.accountId,
+				payment_id: seed.id,
+				chain_root_id: seed.chainRootId,
+				amount_minor: seed.reversalOfId ? seed.amountMinor : -seed.amountMinor,
+				effective_at: seed.effectiveAt,
+				ordering_key: orderingKeyFor(seed.effectiveAt, seed.chainRootId),
+				recorded_at: seed.recordedAt,
+				operation_id: null,
+			})
+			.execute();
+	}
+
+	await db
+		.insertInto("payment_applications")
+		.values([
+			{
+				id: createId(),
+				household_id: householdId,
+				payment_id: luzPaymentId,
+				expense_id: luzExpenseId,
+				amount_minor: 8500,
+				status: "active",
+				recorded_at: daysAgo(3),
+				reversed_at: null,
+				operation_id: null,
+			},
+			{
+				id: createId(),
+				household_id: householdId,
+				payment_id: seguroPaymentId,
+				expense_id: seguroExpenseId,
+				amount_minor: 50000,
+				status: "active",
+				recorded_at: daysAgo(2),
+				reversed_at: null,
+				operation_id: null,
+			},
+			{
+				id: createId(),
+				household_id: householdId,
+				payment_id: multiPaymentId,
+				expense_id: compraExpenseId,
+				amount_minor: 6000,
+				status: "active",
+				recorded_at: daysAgo(1),
+				reversed_at: null,
+				operation_id: null,
+			},
+			{
+				id: createId(),
+				household_id: householdId,
+				payment_id: multiPaymentId,
+				expense_id: hotelExpenseId,
+				amount_minor: 4000,
+				status: "active",
+				recorded_at: daysAgo(1),
+				reversed_at: null,
+				operation_id: null,
+			},
+		])
+		.execute();
+
+	await db
+		.insertInto("expense_evidence")
+		.values({
+			id: createId(),
+			expense_id: luzExpenseId,
+			household_id: householdId,
+			label: "Factura en PDF",
+			url: "https://facturas.example.com/suministros/luz.pdf",
+			note: "Factura mensual descargada del portal",
+			status: "active",
+			created_by: null,
+			created_at: timestamp,
+			removed_at: null,
+			operation_id: null,
+		})
+		.execute();
+
 	return {
 		households: 1,
 		members: 3,
@@ -609,6 +1269,8 @@ export async function preseedDatabase(
 		accounts: 5,
 		transfers: transfers.length,
 		observations: observations.length,
+		expenses: expenseSeeds.length,
+		payments: paymentSeeds.length,
 		username: DEVELOPMENT_USERNAME,
 	};
 }

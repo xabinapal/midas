@@ -101,7 +101,13 @@ export interface CreateAccountTransferInput {
 export interface AccountEntryRecord {
 	id: string;
 	accountId: string;
+	/**
+	 * Owning movement id: a transfer id for transfer entries, a payment id
+	 * for payment entries adopted by the combined balance reader. Consumers
+	 * joining back to `account_transfers` must check `ownerKind` first.
+	 */
 	transferId: string;
+	ownerKind: "transfer" | "payment";
 	chainRootId: string;
 	amountMinor: number;
 	effectiveAt: string;
@@ -636,6 +642,7 @@ function toEntry(row: {
 		id: row.id,
 		accountId: row.account_id,
 		transferId: row.transfer_id,
+		ownerKind: "transfer",
 		chainRootId: row.chain_root_id,
 		amountMinor: row.amount_minor,
 		effectiveAt: row.effective_at,

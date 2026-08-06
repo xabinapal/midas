@@ -13,6 +13,7 @@ import { createAccountService } from "./service";
 import { createTransferService } from "./transfers";
 import { createContributionRepository, createDistributionRepository } from "../funding/repository";
 import { createFundingService } from "../funding/service";
+import { createCombinedEntryReader } from "../expenses/entries";
 
 /**
  * Wires the account and funding services with their real repositories.
@@ -33,7 +34,8 @@ export function createAccountServices(db: Kysely<Database>) {
 	return {
 		accountService: createAccountService(accounts, holders, members, households),
 		transferService: createTransferService(accounts, transfers, entries),
-		observationService: createObservationService(accounts, observations, entries),
+		// Balances fold payment debits together with transfer entries.
+		observationService: createObservationService(accounts, observations, createCombinedEntryReader(db)),
 		fundingService: createFundingService(
 			{ accounts, transfers, entries },
 			{ contributions, distributions },

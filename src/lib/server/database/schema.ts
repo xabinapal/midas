@@ -199,6 +199,160 @@ export interface DistributionAllocationsTable {
 	amount_minor: number;
 }
 
+export interface ExpenseCategoriesTable {
+	id: string;
+	household_id: string;
+	name: string;
+	slug: string;
+	ordering: number;
+	is_active: 0 | 1;
+	created_at: string;
+	updated_at: string;
+	operation_id: string | null;
+}
+
+export interface ReportingPeriodsTable {
+	id: string;
+	household_id: string;
+	slug: string;
+	label: string;
+	start_date: string;
+	end_date: string;
+	kind: string;
+	created_at: string;
+	operation_id: string | null;
+}
+
+export interface RecurringTemplatesTable {
+	id: string;
+	household_id: string;
+	category_id: string;
+	description: string;
+	estimated_amount_minor: number;
+	cadence: string;
+	interval_count: number;
+	start_date: string;
+	end_date: string | null;
+	due_day: number | null;
+	service_span_months: number | null;
+	account_hint_id: string | null;
+	allocation_method: string;
+	status: string;
+	created_at: string;
+	updated_at: string;
+	operation_id: string | null;
+}
+
+export interface RecurringTemplateAllocationParamsTable {
+	id: string;
+	template_id: string;
+	member_id: string;
+	value: number | null;
+}
+
+export interface ExpensesTable {
+	id: string;
+	household_id: string;
+	category_id: string;
+	reporting_period_id: string;
+	description: string;
+	reference: string | null;
+	status: string;
+	planned_amount_minor: number | null;
+	planned_version: number;
+	actual_amount_minor: number | null;
+	accounting_date: string;
+	due_date: string | null;
+	service_start_date: string | null;
+	service_end_date: string | null;
+	allocation_method: string;
+	account_hint_id: string | null;
+	template_id: string | null;
+	scheduled_due_date: string | null;
+	realized_by_expense_id: string | null;
+	chain_root_id: string;
+	replaces_id: string | null;
+	reversed_by_id: string | null;
+	actor_user_id: string | null;
+	operation_id: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ExpenseAllocationsTable {
+	id: string;
+	expense_id: string;
+	member_id: string;
+	basis: string;
+	amount_minor: number;
+}
+
+export interface ExpenseAllocationParamsTable {
+	id: string;
+	expense_id: string;
+	member_id: string;
+	value: number | null;
+}
+
+export interface PaymentsTable {
+	id: string;
+	household_id: string;
+	account_id: string;
+	amount_minor: number;
+	description: string;
+	effective_at: string;
+	ordering_key: string;
+	recorded_at: string;
+	funding_source: string;
+	funder_member_id: string | null;
+	status: string;
+	chain_root_id: string;
+	reversal_of_id: string | null;
+	replaces_id: string | null;
+	reversed_by_id: string | null;
+	actor_user_id: string | null;
+	operation_id: string | null;
+	created_at: string;
+}
+
+export interface PaymentAccountEntriesTable {
+	id: string;
+	account_id: string;
+	payment_id: string;
+	chain_root_id: string;
+	amount_minor: number;
+	effective_at: string;
+	ordering_key: string;
+	recorded_at: string;
+	operation_id: string | null;
+}
+
+export interface PaymentApplicationsTable {
+	id: string;
+	household_id: string;
+	payment_id: string;
+	expense_id: string;
+	amount_minor: number;
+	status: string;
+	recorded_at: string;
+	reversed_at: string | null;
+	operation_id: string | null;
+}
+
+export interface ExpenseEvidenceTable {
+	id: string;
+	expense_id: string;
+	household_id: string;
+	label: string;
+	url: string;
+	note: string | null;
+	status: string;
+	created_by: string | null;
+	created_at: string;
+	removed_at: string | null;
+	operation_id: string | null;
+}
+
 export interface Database {
 	users: UsersTable;
 	households: HouseholdsTable;
@@ -219,4 +373,15 @@ export interface Database {
 	contribution_allocations: ContributionAllocationsTable;
 	distributions: DistributionsTable;
 	distribution_allocations: DistributionAllocationsTable;
+	expense_categories: ExpenseCategoriesTable;
+	reporting_periods: ReportingPeriodsTable;
+	recurring_templates: RecurringTemplatesTable;
+	recurring_template_allocation_params: RecurringTemplateAllocationParamsTable;
+	expenses: ExpensesTable;
+	expense_allocations: ExpenseAllocationsTable;
+	expense_allocation_params: ExpenseAllocationParamsTable;
+	payments: PaymentsTable;
+	payment_account_entries: PaymentAccountEntriesTable;
+	payment_applications: PaymentApplicationsTable;
+	expense_evidence: ExpenseEvidenceTable;
 }

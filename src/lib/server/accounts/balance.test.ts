@@ -30,6 +30,7 @@ function entry(overrides: Partial<AccountEntryRecord> = {}): AccountEntryRecord 
 		id: "entry-1",
 		accountId: "acc-1",
 		transferId: "transfer-1",
+		ownerKind: "transfer",
 		chainRootId: "transfer-1",
 		amountMinor: 1000,
 		effectiveAt: T1,
