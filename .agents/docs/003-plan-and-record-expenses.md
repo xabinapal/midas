@@ -266,8 +266,9 @@ drafts.
 
 ## Commit history
 
-None yet — implementation was reviewed before first commit; commits follow
-the fix pass.
+- `9248964` docs: own session handoffs by the orchestrator and merge session 003
+- `9bc23c6` feat: plan and record household expenses with payments and recurrence
+- `441901b` feat: add spanish expense, payment, and planning workflows
 
 ## Recommendations for the next session
 
