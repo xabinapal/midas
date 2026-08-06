@@ -26,6 +26,12 @@ const SUMMARY_LABELS: Record<string, string> = {
 	memberCount: "N.º de miembros",
 	defaultWeight: "Peso de reparto",
 	target: "Usuario",
+	accountName: "Cuenta",
+	sourceAccountName: "Cuenta origen",
+	destinationAccountName: "Cuenta destino",
+	amount: "Importe",
+	classification: "Clasificación",
+	observedAt: "Fecha de observación",
 };
 
 const HIDDEN_KEYS = new Set(["action", "memberId", "targetUserId"]);

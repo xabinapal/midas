@@ -13,7 +13,7 @@ describe("AppNavigation", () => {
 			const navigation = screen.getByRole("navigation", { name: navigationName });
 
 			for (const destinationName of destinationNames) {
-				const isLink = destinationName === "Resumen" || destinationName === "Más";
+				const isLink = destinationName === "Resumen" || destinationName === "Más" || destinationName === "Saldos";
 				const role = isLink ? "link" : "button";
 				expect(within(navigation).getByRole(role, { name: destinationName })).toBeTruthy();
 			}
@@ -29,6 +29,16 @@ describe("AppNavigation", () => {
 		expect(within(mobileNavigation).getByRole("button", { name: "Añadir gasto" }).hasAttribute("aria-current")).toBe(
 			false,
 		);
+	});
+
+	it("keeps the section active on account and transfer subpaths", () => {
+		for (const path of ["/cuentas", "/cuentas/abc-123", "/cuentas/abc-123/observar", "/transferencias/xyz/corregir"]) {
+			render(AppNavigation, { currentPath: path });
+			const mobileNavigation = screen.getByRole("navigation", { name: "Navegación móvil" });
+
+			expect(within(mobileNavigation).getByRole("link", { name: "Saldos" }).getAttribute("aria-current")).toBe("page");
+			document.body.innerHTML = "";
+		}
 	});
 
 	it("keeps every mobile action keyboard reachable in visual order", async () => {

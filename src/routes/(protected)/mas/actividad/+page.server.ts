@@ -1,5 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { buildActivityDetails } from "$lib/server/activity/display";
+import { visibleToProjection } from "$lib/server/operations/visibility";
 
 const EVENT_LABELS: Record<string, string> = {
 	bootstrap_completed: "Configuración inicial completada",
@@ -19,6 +20,24 @@ const EVENT_LABELS: Record<string, string> = {
 	session_created: "Sesión iniciada",
 	session_revoked: "Sesión cerrada",
 	operator_recovery: "Recuperación del operador",
+	account_created: "Cuenta creada",
+	account_updated: "Cuenta actualizada",
+	account_activated: "Cuenta activada",
+	account_closed: "Cuenta cerrada",
+	account_reopened: "Cuenta reabierta",
+	account_deleted: "Cuenta eliminada",
+	transfer_posted: "Transferencia registrada",
+	transfer_classified: "Transferencia clasificada",
+	transfer_reversed: "Transferencia revertida",
+	transfer_corrected: "Transferencia corregida",
+	contribution_posted: "Aportación registrada",
+	contribution_reversed: "Aportación revertida",
+	contribution_corrected: "Aportación corregida",
+	distribution_posted: "Distribución registrada",
+	distribution_reversed: "Distribución revertida",
+	distribution_corrected: "Distribución corregida",
+	balance_observation_recorded: "Saldo observado",
+	balance_observation_invalidated: "Observación invalidada",
 };
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -28,6 +47,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	let query = locals.db
 		.selectFrom("activity_events")
+		.leftJoin("operation_roots", "operation_roots.id", "activity_events.operation_id")
 		.leftJoin("users as actor", "actor.id", "activity_events.actor_user_id")
 		.leftJoin("users as subject_user", (join) =>
 			join.onRef("subject_user.id", "=", "activity_events.subject_id").on("activity_events.subject_type", "=", "user"),
@@ -50,7 +70,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			"subject_user.username as subject_username",
 			"subject_member.display_name as subject_member_name",
 		])
-		.where("activity_events.household_id", "=", householdId);
+		.where("activity_events.household_id", "=", householdId)
+		.where((eb) => visibleToProjection(eb, "activity_events.operation_id"));
 
 	if (eventType) query = query.where("activity_events.event_type", "=", eventType);
 	if (actorUserId) query = query.where("activity_events.actor_user_id", "=", actorUserId);

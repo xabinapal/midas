@@ -10,17 +10,24 @@
 	interface Destination {
 		label: string;
 		icon: NavigationIcon;
-		href?: "/" | "/mas";
+		href?: "/" | "/mas" | "/cuentas";
 	}
 
 	const destinations: Destination[] = [
 		{ label: "Resumen", icon: "summary", href: "/" },
 		{ label: "Gastos", icon: "expenses" },
-		{ label: "Saldos", icon: "balances" },
+		{ label: "Saldos", icon: "balances", href: "/cuentas" },
 		{ label: "Más", icon: "more", href: "/mas" },
 	];
 
 	let { currentPath }: Props = $props();
+
+	function isActive(href: string): boolean {
+		if (href === "/") return currentPath === "/";
+		if (currentPath === href || currentPath.startsWith(`${href}/`)) return true;
+		// Transfer workflows belong to the Saldos section
+		return href === "/cuentas" && currentPath.startsWith("/transferencias");
+	}
 </script>
 
 {#snippet navigationIcon(icon: NavigationIcon)}
@@ -54,10 +61,10 @@
 	{#each destinations.slice(0, 2) as destination (destination.label)}
 		{#if destination.href}
 			<a
-				class:font-bold={currentPath === destination.href}
-				class:text-primary={currentPath === destination.href}
+				class:font-bold={isActive(destination.href)}
+				class:text-primary={isActive(destination.href)}
 				href={resolve(destination.href)}
-				aria-current={currentPath === destination.href ? "page" : undefined}
+				aria-current={isActive(destination.href) ? "page" : undefined}
 			>
 				{@render navigationIcon(destination.icon)}
 				<span class="dock-label whitespace-normal">{destination.label}</span>
@@ -87,10 +94,10 @@
 	{#each destinations.slice(2) as destination (destination.label)}
 		{#if destination.href}
 			<a
-				class:font-bold={currentPath === destination.href}
-				class:text-primary={currentPath === destination.href}
+				class:font-bold={isActive(destination.href)}
+				class:text-primary={isActive(destination.href)}
 				href={resolve(destination.href)}
-				aria-current={currentPath === destination.href ? "page" : undefined}
+				aria-current={isActive(destination.href) ? "page" : undefined}
 			>
 				{@render navigationIcon(destination.icon)}
 				<span class="dock-label whitespace-normal">{destination.label}</span>
@@ -121,9 +128,9 @@
 				{#if destination.href}
 					<a
 						class="flex min-h-12 items-center gap-3 rounded-box"
-						class:menu-active={currentPath === destination.href}
+						class:menu-active={isActive(destination.href)}
 						href={resolve(destination.href)}
-						aria-current={currentPath === destination.href ? "page" : undefined}
+						aria-current={isActive(destination.href) ? "page" : undefined}
 					>
 						{@render navigationIcon(destination.icon)}
 						<span>{destination.label}</span>

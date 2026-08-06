@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { formatCurrency } from "$lib/format/format";
+	import { formatMinorUnits } from "$lib/accounts/money";
 
 	interface Props {
-		value: number;
+		valueMinor: number;
 		currency: string;
 		large?: boolean;
 	}
 
-	let { value, currency, large = false }: Props = $props();
+	let { valueMinor, currency, large = false }: Props = $props();
 </script>
 
-<data class:text-3xl={large} class="font-bold tracking-tight tabular-nums" {value}>
-	{formatCurrency(value, currency)}
+<data class:text-3xl={large} class="font-bold tracking-tight tabular-nums" value={valueMinor / 100}>
+	{formatMinorUnits(valueMinor, currency)}
 </data>
