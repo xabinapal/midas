@@ -1,5 +1,6 @@
 import type { Kysely } from "kysely";
 import type { Database } from "../database";
+import { visibleToProjection } from "../operations/visibility";
 
 export interface ActivityEventInput {
 	id: string;
@@ -80,19 +81,27 @@ export function createActivityRepository(db: Kysely<Database>): ActivityReposito
 		},
 
 		async findByHousehold(householdId, filters) {
-			let query = db.selectFrom("activity_events").selectAll().where("household_id", "=", householdId);
+			let query = db
+				.selectFrom("activity_events")
+				.leftJoin("operation_roots", "operation_roots.id", "activity_events.operation_id")
+				.selectAll("activity_events")
+				.where("activity_events.household_id", "=", householdId)
+				.where((eb) => visibleToProjection(eb, "activity_events.operation_id"));
 
 			if (filters?.actorUserId) {
-				query = query.where("actor_user_id", "=", filters.actorUserId);
+				query = query.where("activity_events.actor_user_id", "=", filters.actorUserId);
 			}
 			if (filters?.eventType) {
-				query = query.where("event_type", "=", filters.eventType);
+				query = query.where("activity_events.event_type", "=", filters.eventType);
 			}
 			if (filters?.subjectId) {
-				query = query.where("subject_id", "=", filters.subjectId);
+				query = query.where("activity_events.subject_id", "=", filters.subjectId);
 			}
 
-			const rows = await query.orderBy("occurred_at", "desc").orderBy("recorded_at", "desc").execute();
+			const rows = await query
+				.orderBy("activity_events.occurred_at", "desc")
+				.orderBy("activity_events.recorded_at", "desc")
+				.execute();
 			return rows.map((row) => ({
 				id: row.id,
 				householdId: row.household_id,

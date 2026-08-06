@@ -98,6 +98,107 @@ export interface ConsumedRecoveryCredentialsTable {
 	operation_id: string | null;
 }
 
+export interface AccountsTable {
+	id: string;
+	household_id: string;
+	name: string;
+	classification: string;
+	status: string;
+	currency: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AccountHolderIntervalsTable {
+	id: string;
+	account_id: string;
+	member_id: string;
+	effective_from: string;
+	effective_to: string | null;
+	operation_id: string | null;
+}
+
+export interface BalanceObservationsTable {
+	id: string;
+	account_id: string;
+	amount_minor: number;
+	effective_at: string;
+	ordering_key: string;
+	recorded_at: string;
+	status: string;
+	replaces_observation_id: string | null;
+	invalidated_at: string | null;
+	operation_id: string | null;
+}
+
+export interface AccountTransfersTable {
+	id: string;
+	household_id: string;
+	source_account_id: string;
+	destination_account_id: string;
+	amount_minor: number;
+	effective_at: string;
+	ordering_key: string;
+	recorded_at: string;
+	description: string;
+	classification: string;
+	status: string;
+	chain_root_id: string;
+	reversal_of_id: string | null;
+	replaces_id: string | null;
+	reversed_by_id: string | null;
+	operation_id: string | null;
+	created_at: string;
+}
+
+export interface AccountEntriesTable {
+	id: string;
+	account_id: string;
+	transfer_id: string;
+	chain_root_id: string;
+	amount_minor: number;
+	effective_at: string;
+	ordering_key: string;
+	recorded_at: string;
+	operation_id: string | null;
+}
+
+export interface ContributionsTable {
+	id: string;
+	household_id: string;
+	transfer_id: string;
+	member_id: string;
+	amount_minor: number;
+	status: string;
+	recorded_at: string;
+	operation_id: string | null;
+}
+
+export interface ContributionAllocationsTable {
+	id: string;
+	contribution_id: string;
+	member_id: string;
+	amount_minor: number;
+}
+
+export interface DistributionsTable {
+	id: string;
+	household_id: string;
+	transfer_id: string;
+	member_id: string;
+	amount_minor: number;
+	status: string;
+	recorded_at: string;
+	operation_id: string | null;
+}
+
+export interface DistributionAllocationsTable {
+	id: string;
+	distribution_id: string;
+	member_id: string;
+	amount_minor: number;
+}
+
 export interface Database {
 	users: UsersTable;
 	households: HouseholdsTable;
@@ -109,4 +210,13 @@ export interface Database {
 	sessions: SessionsTable;
 	activity_events: ActivityEventsTable;
 	consumed_recovery_credentials: ConsumedRecoveryCredentialsTable;
+	accounts: AccountsTable;
+	account_holder_intervals: AccountHolderIntervalsTable;
+	balance_observations: BalanceObservationsTable;
+	account_transfers: AccountTransfersTable;
+	account_entries: AccountEntriesTable;
+	contributions: ContributionsTable;
+	contribution_allocations: ContributionAllocationsTable;
+	distributions: DistributionsTable;
+	distribution_allocations: DistributionAllocationsTable;
 }

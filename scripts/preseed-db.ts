@@ -11,7 +11,7 @@ try {
 		const result = await preseedDatabase(db);
 
 		console.log(
-			`Development database preseeded: ${result.households} household, ${result.members} members, ${result.users} users (${result.username}).`,
+			`Development database preseeded: ${result.households} household, ${result.members} members, ${result.users} users (${result.username}), ${result.accounts} accounts, ${result.transfers} transfers.`,
 		);
 	} finally {
 		await db.destroy();

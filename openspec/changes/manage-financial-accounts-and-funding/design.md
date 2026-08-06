@@ -63,7 +63,7 @@ estimated balance(t) = latest observed balance
                      + sum(posted account entries after observation through t)
 ```
 
-The projection includes a `last observed` timestamp and is not described as a bank-confirmed balance. Updating an observation appends a new observation rather than rewriting history.
+The projection includes a `last observed` timestamp and is not described as a bank-confirmed balance. Updating an observation appends a new observation rather than rewriting history. At equal effective timestamps, the anchor is the observation recorded latest (then id for stability); folded chains follow the anchor when their ordering key sorts strictly after the anchor's key.
 
 ### Keep posted movement immutable
 
@@ -75,7 +75,9 @@ Accounts move from `draft` to `active` and may later become `closed`. Closed acc
 
 ### Use replay-safe operation roots
 
-Transfer classification, funding records, and activity events use the operation-root protocol defined by activity history. Only completed operations enter account and funding projections. This avoids assuming unavailable Kysely transactions while keeping retries idempotent and partial writes invisible.
+Transfer classification, funding records, and activity events use the operation-root protocol defined by activity history. Only completed operations enter account and funding projections. This avoids assuming unavailable Kysely transactions while keeping partial writes invisible.
+
+New rows (reversals, replacements, funding records, observations) are inserted first and stay invisible until the operation completes; visible status flips on existing rows (reversed, classification, invalidated) are applied last within the operation. If an operation fails after a flip, the retried operation resumes the half-applied state — adopting or replacing the invisible rows and re-applying the flips — rather than treating it as terminal. Retried user submissions mint fresh operations; idempotent retry by client-supplied key is deferred to the future hardening change named by activity history, so a refresh-and-resubmit can still produce a deliberate duplicate that the user corrects.
 
 ## Risks / Trade-offs
 
