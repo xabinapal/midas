@@ -1,6 +1,7 @@
 import { error, fail } from "@sveltejs/kit";
 import { createAccountServices } from "$lib/server/accounts/services";
 import { buildAccountHistory, type HistoryActor } from "$lib/server/accounts/history";
+import { createPaymentRepository } from "$lib/server/expenses/repository";
 import { insertValidatedActivity } from "$lib/server/activity/insert";
 import { isGateConflict, isGateError, withGate } from "$lib/server/operations/with-gate";
 import { formatMinorUnits } from "$lib/accounts/money";
@@ -18,20 +19,23 @@ async function loadAccountDetail(locals: App.Locals, accountId: string) {
 	const currency = household?.currency ?? "EUR";
 	const cutoff = new Date().toISOString();
 
-	const [balance, transfers, observationHistory, allAccounts] = await Promise.all([
+	const [balance, transfers, observationHistory, allAccounts, payments] = await Promise.all([
 		observationService.getEstimatedBalance(householdId, accountId, cutoff),
 		transferService.listTransfersByAccount(householdId, accountId),
 		repositories.observations.findHistoryByAccount(accountId),
 		repositories.accounts.findByHousehold(householdId),
+		createPaymentRepository(locals.db).listByAccount(accountId),
 	]);
 
 	const accountNames = new Map(allAccounts.map((row) => [row.id, row.name]));
 
 	const operationIds = [
 		...new Set(
-			[...transfers.map((t) => t.operationId), ...observationHistory.map((o) => o.operationId)].filter(
-				(id): id is string => id !== null,
-			),
+			[
+				...transfers.map((t) => t.operationId),
+				...observationHistory.map((o) => o.operationId),
+				...payments.map((p) => p.operationId),
+			].filter((id): id is string => id !== null),
 		),
 	];
 	const actors = new Map<string, HistoryActor>();
@@ -49,7 +53,14 @@ async function loadAccountDetail(locals: App.Locals, accountId: string) {
 		}
 	}
 
-	const history = buildAccountHistory({ accountId, transfers, observations: observationHistory, accountNames, actors });
+	const history = buildAccountHistory({
+		accountId,
+		transfers,
+		observations: observationHistory,
+		accountNames,
+		payments,
+		actors,
+	});
 
 	return { account, balance, currency, history };
 }

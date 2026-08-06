@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from "$app/paths";
 	import { formatDate } from "$lib/format/format";
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
@@ -43,6 +44,18 @@
 							</div>
 						{/each}
 					</dl>
+				{/if}
+				{#if event.subjectLink}
+					<a
+						class="link mt-1 inline-flex min-h-11 items-center text-sm"
+						href={event.subjectLink.kind === "expense"
+							? resolve(`/gastos/${event.subjectLink.id}`)
+							: event.subjectLink.kind === "payment"
+								? resolve(`/pagos/${event.subjectLink.id}`)
+								: resolve(`/cuentas/${event.subjectLink.id}`)}
+					>
+						Ver registro
+					</a>
 				{/if}
 			</div>
 		{:else}

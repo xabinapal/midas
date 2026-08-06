@@ -13,11 +13,9 @@ describe("AppNavigation", () => {
 			const navigation = screen.getByRole("navigation", { name: navigationName });
 
 			for (const destinationName of destinationNames) {
-				const isLink = destinationName === "Resumen" || destinationName === "Más" || destinationName === "Saldos";
-				const role = isLink ? "link" : "button";
-				expect(within(navigation).getByRole(role, { name: destinationName })).toBeTruthy();
+				expect(within(navigation).getByRole("link", { name: destinationName })).toBeTruthy();
 			}
-			expect(within(navigation).getByRole("button", { name: "Añadir gasto" })).toBeTruthy();
+			expect(within(navigation).getByRole("link", { name: "Añadir gasto" })).toBeTruthy();
 		}
 	});
 
@@ -26,9 +24,19 @@ describe("AppNavigation", () => {
 		const mobileNavigation = screen.getByRole("navigation", { name: "Navegación móvil" });
 
 		expect(within(mobileNavigation).getByRole("link", { name: "Resumen" }).getAttribute("aria-current")).toBe("page");
-		expect(within(mobileNavigation).getByRole("button", { name: "Añadir gasto" }).hasAttribute("aria-current")).toBe(
+		expect(within(mobileNavigation).getByRole("link", { name: "Añadir gasto" }).hasAttribute("aria-current")).toBe(
 			false,
 		);
+	});
+
+	it("keeps the expenses section active on expense and payment subpaths", () => {
+		for (const path of ["/gastos", "/gastos/nuevo", "/gastos/abc-123", "/pagos/xyz-789"]) {
+			render(AppNavigation, { currentPath: path });
+			const mobileNavigation = screen.getByRole("navigation", { name: "Navegación móvil" });
+
+			expect(within(mobileNavigation).getByRole("link", { name: "Gastos" }).getAttribute("aria-current")).toBe("page");
+			document.body.innerHTML = "";
+		}
 	});
 
 	it("keeps the section active on account and transfer subpaths", () => {

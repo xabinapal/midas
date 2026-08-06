@@ -10,12 +10,12 @@
 	interface Destination {
 		label: string;
 		icon: NavigationIcon;
-		href?: "/" | "/mas" | "/cuentas";
+		href?: "/" | "/mas" | "/cuentas" | "/gastos";
 	}
 
 	const destinations: Destination[] = [
 		{ label: "Resumen", icon: "summary", href: "/" },
-		{ label: "Gastos", icon: "expenses" },
+		{ label: "Gastos", icon: "expenses", href: "/gastos" },
 		{ label: "Saldos", icon: "balances", href: "/cuentas" },
 		{ label: "Más", icon: "more", href: "/mas" },
 	];
@@ -26,7 +26,9 @@
 		if (href === "/") return currentPath === "/";
 		if (currentPath === href || currentPath.startsWith(`${href}/`)) return true;
 		// Transfer workflows belong to the Saldos section
-		return href === "/cuentas" && currentPath.startsWith("/transferencias");
+		if (href === "/cuentas" && currentPath.startsWith("/transferencias")) return true;
+		// Payment workflows belong to the Gastos section
+		return href === "/gastos" && currentPath.startsWith("/pagos");
 	}
 </script>
 
@@ -78,16 +80,15 @@
 	{/each}
 
 	<div class="relative flex min-w-11 justify-center">
-		<button
+		<a
 			class="btn btn-primary btn-circle min-h-12 min-w-12 -translate-y-3 shadow-[var(--shadow-raised)]"
-			type="button"
+			href={resolve("/gastos/nuevo")}
 			aria-label="Añadir gasto"
-			aria-disabled="true"
 		>
 			<svg aria-hidden="true" class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
 				<path d="M12 5v14M5 12h14" />
 			</svg>
-		</button>
+		</a>
 		<span class="dock-label whitespace-normal">Añadir</span>
 	</div>
 
@@ -116,12 +117,12 @@
 	aria-label="Navegación de escritorio"
 >
 	<a class="mb-8 flex min-h-11 items-center text-2xl font-bold text-primary" href={resolve("/")}>Midas</a>
-	<button class="btn btn-primary mb-6 min-h-12 w-full rounded-box" type="button" aria-disabled="true">
+	<a class="btn btn-primary mb-6 min-h-12 w-full rounded-box" href={resolve("/gastos/nuevo")}>
 		<svg aria-hidden="true" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
 			<path d="M12 5v14M5 12h14" />
 		</svg>
 		Añadir gasto
-	</button>
+	</a>
 	<ul class="menu w-full gap-2 p-0">
 		{#each destinations as destination (destination.label)}
 			<li>

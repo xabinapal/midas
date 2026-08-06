@@ -189,6 +189,30 @@
 										{/if}
 									{/if}
 								</p>
+							{:else if item.kind === "payment"}
+								<p class="font-semibold break-words">
+									{item.description}
+									<span class="badge badge-sm badge-outline">Pago</span>
+									{#if item.paymentStatus === "reversed"}
+										<span class="badge badge-sm badge-ghost">Revertido</span>
+									{/if}
+									{#if item.reversalOfId}
+										<span class="badge badge-sm badge-ghost">Reversión</span>
+									{/if}
+									{#if item.replacesId}
+										<span class="badge badge-sm badge-ghost">Sustitución</span>
+									{/if}
+								</p>
+								<p class="text-sm text-[var(--color-text-soft)]">
+									{item.fundingSource === "shared" ? "Fondos comunes" : "Pago personal"} · {formatDate(
+										item.effectiveAt,
+									)}
+									{#if item.actorUsername}
+										· por {item.actorUsername}{#if item.actorIsActive === false}
+											<span class="text-[var(--color-text-muted)]">(inactivo)</span>
+										{/if}
+									{/if}
+								</p>
 							{:else}
 								<p class="font-semibold break-words">
 									{item.description || TRANSFER_CLASSIFICATION_LABELS[item.classification ?? "unclassified"]}
@@ -217,7 +241,19 @@
 							{/if}
 						</div>
 						<div class="flex shrink-0 items-center gap-2">
-							{#if item.kind === "transfer"}
+							{#if item.kind === "payment"}
+								<data
+									class="font-bold tabular-nums"
+									class:text-success={item.direction === "in"}
+									value={(item.amountMinor ?? 0) / 100}
+								>
+									{item.direction === "in" ? "+" : "−"}{formatMinorUnits(
+										Math.abs(item.amountMinor ?? 0),
+										data.currency,
+									)}
+								</data>
+								<a class="btn btn-ghost btn-sm min-h-11" href={resolve(`/pagos/${item.paymentId}`)}>Ver pago</a>
+							{:else if item.kind === "transfer"}
 								<data
 									class="font-bold tabular-nums"
 									class:text-success={item.direction === "in" && item.transferStatus !== "reversed"}

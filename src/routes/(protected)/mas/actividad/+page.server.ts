@@ -1,44 +1,6 @@
 import type { PageServerLoad } from "./$types";
-import { buildActivityDetails } from "$lib/server/activity/display";
+import { buildActivityDetails, EVENT_LABELS, subjectLink } from "$lib/server/activity/display";
 import { visibleToProjection } from "$lib/server/operations/visibility";
-
-const EVENT_LABELS: Record<string, string> = {
-	bootstrap_completed: "Configuración inicial completada",
-	password_changed: "Contraseña cambiada",
-	member_created: "Miembro creado",
-	member_deactivated: "Miembro desactivado",
-	member_reactivated: "Miembro reactivado",
-	member_updated: "Miembro actualizado",
-	member_deleted: "Miembro eliminado",
-	user_created: "Usuario creado",
-	user_disabled: "Usuario desactivado",
-	user_reactivated: "Usuario reactivado",
-	user_member_link_changed: "Asociación de miembro cambiada",
-	password_reset: "Contraseña restablecida",
-	admin_granted: "Permisos de administrador concedidos",
-	admin_revoked: "Permisos de administrador revocados",
-	session_created: "Sesión iniciada",
-	session_revoked: "Sesión cerrada",
-	operator_recovery: "Recuperación del operador",
-	account_created: "Cuenta creada",
-	account_updated: "Cuenta actualizada",
-	account_activated: "Cuenta activada",
-	account_closed: "Cuenta cerrada",
-	account_reopened: "Cuenta reabierta",
-	account_deleted: "Cuenta eliminada",
-	transfer_posted: "Transferencia registrada",
-	transfer_classified: "Transferencia clasificada",
-	transfer_reversed: "Transferencia revertida",
-	transfer_corrected: "Transferencia corregida",
-	contribution_posted: "Aportación registrada",
-	contribution_reversed: "Aportación revertida",
-	contribution_corrected: "Aportación corregida",
-	distribution_posted: "Distribución registrada",
-	distribution_reversed: "Distribución revertida",
-	distribution_corrected: "Distribución corregida",
-	balance_observation_recorded: "Saldo observado",
-	balance_observation_invalidated: "Observación invalidada",
-};
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const householdId = locals.user!.householdId;
@@ -88,6 +50,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		occurredAt: row.occurred_at,
 		actorUsername: row.actor_username,
 		actorIsActive: row.actor_is_active === null ? null : row.actor_is_active === 1,
+		subjectLink: subjectLink(row.subject_type, row.subject_id),
 		details: buildActivityDetails({
 			subjectType: row.subject_type,
 			subjectId: row.subject_id,
