@@ -247,7 +247,6 @@ export interface ExpenseEvidenceRecord {
 export interface ExpenseCategoryRepository {
 	create(input: CreateExpenseCategoryInput, now: string): Promise<void>;
 	findById(id: string): Promise<ExpenseCategoryRecord | undefined>;
-	findBySlug(householdId: string, slug: string): Promise<ExpenseCategoryRecord | undefined>;
 	findByHousehold(householdId: string): Promise<ExpenseCategoryRecord[]>;
 	update(id: string, fields: { name?: string; ordering?: number }, now: string): Promise<void>;
 	setActive(id: string, isActive: boolean, now: string): Promise<void>;
@@ -259,7 +258,9 @@ export interface ReportingPeriodRepository {
 	findById(id: string): Promise<ReportingPeriodRecord | undefined>;
 	findBySlug(householdId: string, slug: string): Promise<ReportingPeriodRecord | undefined>;
 	findVisibleBySlug(householdId: string, slug: string): Promise<ReportingPeriodRecord | undefined>;
+	/** Raw list, including invisible rows: for slug-uniqueness checks only. */
 	findByHousehold(householdId: string): Promise<ReportingPeriodRecord[]>;
+	findVisibleByHousehold(householdId: string): Promise<ReportingPeriodRecord[]>;
 	reattributeOperation(id: string, operationId: string | null, now: string): Promise<void>;
 }
 
@@ -284,16 +285,14 @@ export interface ExpenseRepository {
 	findVisibleById(id: string): Promise<ExpenseRecord | undefined>;
 	findByOperationId(operationId: string): Promise<ExpenseRecord | undefined>;
 	listByPeriod(householdId: string, reportingPeriodId: string): Promise<ExpenseRecord[]>;
-	listByHousehold(householdId: string): Promise<ExpenseRecord[]>;
 	listPostedByHousehold(householdId: string, limit?: number): Promise<ExpenseRecord[]>;
+	listByChainRoot(chainRootId: string): Promise<ExpenseRecord[]>;
 	findReferencesLike(householdId: string, base: string): Promise<string[]>;
 	findOccurrence(templateId: string, scheduledDueDate: string): Promise<ExpenseRecord | undefined>;
 	findVisibleOccurrence(templateId: string, scheduledDueDate: string): Promise<ExpenseRecord | undefined>;
-	findReplacement(replacesId: string): Promise<ExpenseRecord | undefined>;
 	findByRealizedBy(actualExpenseId: string): Promise<ExpenseRecord[]>;
 	updateDraft(id: string, fields: UpdateDraftExpenseFields, now: string): Promise<void>;
 	updateExpected(id: string, fields: UpdateExpectedExpenseFields, now: string): Promise<void>;
-	markPosted(id: string, reference: string, now: string): Promise<void>;
 	markCancelled(id: string, now: string): Promise<void>;
 	markReversed(id: string, reversedById: string | null, now: string): Promise<void>;
 	setActualAmount(id: string, actualAmountMinor: number, now: string): Promise<void>;
@@ -340,6 +339,7 @@ export interface PaymentEntryRepository {
 export interface PaymentApplicationRepository {
 	create(input: PaymentApplicationRecord): Promise<void>;
 	findById(id: string): Promise<PaymentApplicationRecord | undefined>;
+	findVisibleById(id: string): Promise<PaymentApplicationRecord | undefined>;
 	findActiveByExpense(expenseId: string): Promise<PaymentApplicationRecord[]>;
 	findActiveByPayment(paymentId: string): Promise<PaymentApplicationRecord[]>;
 	findActiveByHousehold(householdId: string): Promise<PaymentApplicationRecord[]>;
@@ -400,16 +400,6 @@ export function createExpenseCategoryRepository(db: Kysely<Database>): ExpenseCa
 
 		async findById(id) {
 			const row = await db.selectFrom("expense_categories").selectAll().where("id", "=", id).executeTakeFirst();
-			return row ? toCategory(row) : undefined;
-		},
-
-		async findBySlug(householdId, slug) {
-			const row = await db
-				.selectFrom("expense_categories")
-				.selectAll()
-				.where("household_id", "=", householdId)
-				.where("slug", "=", slug)
-				.executeTakeFirst();
 			return row ? toCategory(row) : undefined;
 		},
 
@@ -523,6 +513,18 @@ export function createReportingPeriodRepository(db: Kysely<Database>): Reporting
 				.selectAll()
 				.where("household_id", "=", householdId)
 				.orderBy("start_date", "desc")
+				.execute();
+			return rows.map(toPeriod);
+		},
+
+		async findVisibleByHousehold(householdId) {
+			const rows = await db
+				.selectFrom("reporting_periods")
+				.leftJoin("operation_roots", "operation_roots.id", "reporting_periods.operation_id")
+				.selectAll("reporting_periods")
+				.where("reporting_periods.household_id", "=", householdId)
+				.where((eb) => visibleToProjection(eb, "reporting_periods.operation_id"))
+				.orderBy("reporting_periods.start_date", "desc")
 				.execute();
 			return rows.map(toPeriod);
 		},
@@ -869,14 +871,14 @@ export function createExpenseRepository(db: Kysely<Database>): ExpenseRepository
 			return rows.map(toExpense);
 		},
 
-		async listByHousehold(householdId) {
+		async listByChainRoot(chainRootId) {
 			const rows = await db
 				.selectFrom("expenses")
 				.leftJoin("operation_roots", "operation_roots.id", "expenses.operation_id")
 				.select(EXPENSE_COLUMNS)
-				.where("expenses.household_id", "=", householdId)
+				.where("expenses.chain_root_id", "=", chainRootId)
 				.where((eb) => visibleToProjection(eb, "expenses.operation_id"))
-				.orderBy("expenses.accounting_date", "desc")
+				.orderBy("expenses.created_at", "asc")
 				.execute();
 			return rows.map(toExpense);
 		},
@@ -937,16 +939,6 @@ export function createExpenseRepository(db: Kysely<Database>): ExpenseRepository
 			return rows.map(toExpense);
 		},
 
-		async findReplacement(replacesId) {
-			const row = await db
-				.selectFrom("expenses")
-				.selectAll()
-				.where("replaces_id", "=", replacesId)
-				.orderBy("created_at", "asc")
-				.executeTakeFirst();
-			return row ? toExpense(row) : undefined;
-		},
-
 		async updateDraft(id, fields, now) {
 			await db
 				.updateTable("expenses")
@@ -983,14 +975,6 @@ export function createExpenseRepository(db: Kysely<Database>): ExpenseRepository
 					...(fields.allocationMethod !== undefined ? { allocation_method: fields.allocationMethod } : {}),
 					updated_at: now,
 				})
-				.where("id", "=", id)
-				.execute();
-		},
-
-		async markPosted(id, reference, now) {
-			await db
-				.updateTable("expenses")
-				.set({ status: "posted", reference, updated_at: now })
 				.where("id", "=", id)
 				.execute();
 		},
@@ -1444,6 +1428,17 @@ export function createPaymentApplicationRepository(db: Kysely<Database>): Paymen
 
 		async findById(id) {
 			const row = await db.selectFrom("payment_applications").selectAll().where("id", "=", id).executeTakeFirst();
+			return row ? toApplication(row) : undefined;
+		},
+
+		async findVisibleById(id) {
+			const row = await db
+				.selectFrom("payment_applications")
+				.leftJoin("operation_roots", "operation_roots.id", "payment_applications.operation_id")
+				.select(APPLICATION_COLUMNS)
+				.where("payment_applications.id", "=", id)
+				.where((eb) => visibleToProjection(eb, "payment_applications.operation_id"))
+				.executeTakeFirst();
 			return row ? toApplication(row) : undefined;
 		},
 

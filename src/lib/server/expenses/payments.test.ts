@@ -109,6 +109,7 @@ function makeMocks(): Mocks {
 			applicationStore.push({ ...input });
 		}),
 		findById: vi.fn(async (id) => applicationStore.find((row) => row.id === id)),
+		findVisibleById: vi.fn(async (id) => applicationStore.find((row) => row.id === id)),
 		findActiveByExpense: vi.fn(async (expenseId) =>
 			applicationStore.filter((row) => row.expenseId === expenseId && row.status === "active"),
 		),
@@ -410,11 +411,13 @@ describe("payment applications", () => {
 			NOW,
 			"op-2",
 		);
-		await mocks.service.reverseApplication(HOUSEHOLD, application!.id, NOW, "op-3");
+		const first = await mocks.service.reverseApplication(HOUSEHOLD, application!.id, NOW, "op-3");
+		expect(first.flipped).toBe(true);
 		const active = await mocks.applications.findActiveByExpense("expense-1");
 		expect(active).toHaveLength(0);
-		// Reversal is idempotent.
-		await mocks.service.reverseApplication(HOUSEHOLD, application!.id, NOW, "op-4");
+		// Reversal is idempotent and reports the no-op.
+		const second = await mocks.service.reverseApplication(HOUSEHOLD, application!.id, NOW, "op-4");
+		expect(second.flipped).toBe(false);
 		expect(mocks.applicationStore[0]!.status).toBe("reversed");
 	});
 });
@@ -567,6 +570,48 @@ describe("payment reversal and correction", () => {
 		expect(mocks.entryStore.filter((entry) => entry.paymentId === reversal.id)).toHaveLength(1);
 	});
 
+	it("rejects correcting a reversal row (reversals are terminal bookkeeping)", async () => {
+		const payment = await mocks.service.postPayment(
+			HOUSEHOLD,
+			{
+				accountId: "account-shared",
+				amountMinor: 6000,
+				effectiveAt: "2026-08-05T00:00:00.000Z",
+				description: "Compra",
+			},
+			USER,
+			NOW,
+			"op-1",
+		);
+		const { reversal } = await mocks.service.correctPayment(HOUSEHOLD, payment.id, null, USER, NOW, "op-2");
+		const entriesBefore = mocks.entryStore.length;
+		await expect(mocks.service.correctPayment(HOUSEHOLD, reversal.id, null, USER, NOW, "op-3")).rejects.toThrowError(
+			"payment_is_reversal",
+		);
+		// No second compensating entry is ever created for a reversal row.
+		expect(mocks.entryStore).toHaveLength(entriesBefore);
+	});
+
+	it("rejects applying a reversal row to expenses", async () => {
+		const payment = await mocks.service.postPayment(
+			HOUSEHOLD,
+			{
+				accountId: "account-shared",
+				amountMinor: 6000,
+				effectiveAt: "2026-08-05T00:00:00.000Z",
+				description: "Compra",
+			},
+			USER,
+			NOW,
+			"op-1",
+		);
+		const { reversal } = await mocks.service.correctPayment(HOUSEHOLD, payment.id, null, USER, NOW, "op-2");
+		await expect(
+			mocks.service.applyPayment(HOUSEHOLD, reversal.id, [{ expenseId: "expense-1", amountMinor: 1000 }], NOW, "op-3"),
+		).rejects.toThrowError("payment_is_reversal");
+		expect(mocks.applicationStore).toHaveLength(0);
+	});
+
 	it("rejects a replacement whose funding source no longer resolves", async () => {
 		const payment = await mocks.service.postPayment(
 			HOUSEHOLD,
@@ -580,6 +625,18 @@ describe("payment reversal and correction", () => {
 			NOW,
 			"op-1",
 		);
+		// Seed an active application: a rejected replacement must leave it intact.
+		mocks.applicationStore.push({
+			id: "app-1",
+			householdId: HOUSEHOLD,
+			paymentId: payment.id,
+			expenseId: "expense-1",
+			amountMinor: 1000,
+			status: "active",
+			recordedAt: NOW,
+			reversedAt: null,
+			operationId: null,
+		});
 		await expect(
 			mocks.service.correctPayment(
 				HOUSEHOLD,
@@ -595,8 +652,67 @@ describe("payment reversal and correction", () => {
 				"op-2",
 			),
 		).rejects.toThrowError("payment_funder_not_found");
-		// The rejected replacement leaves the posted payment untouched.
+		// The rejected replacement leaves the posted payment and its active
+		// applications untouched.
 		expect(mocks.paymentStore.find((row) => row.id === payment.id)!.status).toBe("posted");
 		expect(mocks.paymentStore).toHaveLength(1);
+		expect(mocks.applicationStore[0]!.status).toBe("active");
+	});
+});
+
+describe("reverseApplicationsForExpense (single seam)", () => {
+	let mocks: Mocks;
+	beforeEach(() => {
+		mocks = makeMocks();
+	});
+
+	it("reverses only the expense's active applications", async () => {
+		mocks.applicationStore.push(
+			{
+				id: "app-1",
+				householdId: HOUSEHOLD,
+				paymentId: "payment-1",
+				expenseId: "expense-1",
+				amountMinor: 1000,
+				status: "active",
+				recordedAt: NOW,
+				reversedAt: null,
+				operationId: null,
+			},
+			{
+				id: "app-2",
+				householdId: HOUSEHOLD,
+				paymentId: "payment-2",
+				expenseId: "expense-1",
+				amountMinor: 500,
+				status: "reversed",
+				recordedAt: NOW,
+				reversedAt: "2026-08-01T00:00:00.000Z",
+				operationId: null,
+			},
+			{
+				id: "app-3",
+				householdId: HOUSEHOLD,
+				paymentId: "payment-1",
+				expenseId: "expense-2",
+				amountMinor: 700,
+				status: "active",
+				recordedAt: NOW,
+				reversedAt: null,
+				operationId: null,
+			},
+		);
+		await mocks.service.reverseApplicationsForExpense(HOUSEHOLD, "expense-1", NOW, "op-1");
+		expect(mocks.applicationStore.find((row) => row.id === "app-1")!.status).toBe("reversed");
+		expect(mocks.applicationStore.find((row) => row.id === "app-1")!.reversedAt).toBe(NOW);
+		// Already-reversed rows keep their original reversal timestamp.
+		expect(mocks.applicationStore.find((row) => row.id === "app-2")!.reversedAt).toBe("2026-08-01T00:00:00.000Z");
+		expect(mocks.applicationStore.find((row) => row.id === "app-3")!.status).toBe("active");
+	});
+
+	it("rejects expenses outside the household", async () => {
+		await expect(
+			mocks.service.reverseApplicationsForExpense("household-other", "expense-1", NOW, "op-1"),
+		).rejects.toThrowError("expense_not_found");
 	});
 });

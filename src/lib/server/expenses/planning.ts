@@ -251,7 +251,8 @@ export function createPlanningService(
 		},
 
 		async listPeriods(householdId) {
-			return deps.periods.findByHousehold(householdId);
+			// Display paths never see periods of crashed creation operations.
+			return deps.periods.findVisibleByHousehold(householdId);
 		},
 
 		async createTemplate(householdId, input, now, operationId) {

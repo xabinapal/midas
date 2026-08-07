@@ -117,7 +117,7 @@ export const EVENT_LABELS: Record<string, string> = {
 
 /** Detail-screen routes an activity subject links to, when one exists. */
 export interface ActivitySubjectLink {
-	kind: "expense" | "payment" | "account";
+	kind: "expense" | "payment" | "account" | "member" | "template";
 	id: string;
 }
 
@@ -130,6 +130,10 @@ export function subjectLink(subjectType: string | null, subjectId: string | null
 			return { kind: "payment", id: subjectId };
 		case "account":
 			return { kind: "account", id: subjectId };
+		case "member":
+			return { kind: "member", id: subjectId };
+		case "template":
+			return { kind: "template", id: subjectId };
 		default:
 			return null;
 	}

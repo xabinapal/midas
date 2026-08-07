@@ -1,5 +1,6 @@
 import {
 	resolveAllocations,
+	scaleFixedSelections,
 	selectionFromParams,
 	type AllocationMemberSelection,
 	type AllocationMethodKind,
@@ -205,7 +206,7 @@ export interface ExpenseService {
 		actorUserId: string,
 		now: string,
 		operationId: string | null,
-	): Promise<{ reversal: ExpenseRecord; replacement: ExpenseRecord | null }>;
+	): Promise<{ reversal: ExpenseRecord; replacement: ExpenseRecord | null; releasedExpectedIds: string[] }>;
 	/** Planning port: inserts one materialized expected occurrence. */
 	insertOccurrence(
 		householdId: string,
@@ -233,7 +234,7 @@ function paramValueFor(method: AllocationMethodKind, member: AllocationMemberSel
 export function createExpenseService(
 	deps: ExpenseDeps,
 	membership: MembershipDeps,
-	applicationReversals?: ApplicationReversalPort,
+	applicationReversals: ApplicationReversalPort,
 ): ExpenseService {
 	async function requireCategory(householdId: string, categoryId: string): Promise<ExpenseCategoryRecord> {
 		const category = await deps.categories.findById(categoryId);
@@ -689,30 +690,41 @@ export function createExpenseService(
 				throw new Error("expense_amount_not_positive");
 			}
 			const memberMap = await householdMemberMap(householdId);
-			const allocation = input.allocation ?? {
+			const storedParams = await deps.allocationParams.findByExpense(expenseId);
+			let allocation = input.allocation;
+			// Fixed splits cannot sum to a changed actual amount by themselves:
+			// scale them proportionally, the same deterministic rule corrections
+			// use, and refresh the stored method metadata.
+			let scaledFixed = false;
+			if (!allocation && expense.allocationMethod === "fixed") {
+				const storedTotal = storedParams.reduce((sum, param) => sum + (param.value ?? 0), 0);
+				if (storedTotal !== input.actualAmountMinor) {
+					allocation = { method: "fixed", members: scaleFixedSelections(storedParams, input.actualAmountMinor) };
+					scaledFixed = true;
+				}
+			}
+			const resolvedAllocation = allocation ?? {
 				method: expense.allocationMethod,
-				members: selectionFromParams(
-					expense.allocationMethod,
-					await deps.allocationParams.findByExpense(expenseId),
-					defaultWeightsByMember(memberMap),
-				),
+				members: selectionFromParams(expense.allocationMethod, storedParams, defaultWeightsByMember(memberMap)),
 			};
-			await validateAllocationMembers(householdId, allocation.members);
-			const lines = resolveAllocations(allocation.method, input.actualAmountMinor, allocation.members);
+			await validateAllocationMembers(householdId, resolvedAllocation.members);
+			const lines = resolveAllocations(resolvedAllocation.method, input.actualAmountMinor, resolvedAllocation.members);
 
 			// Freeze: the planned amount stops moving here and becomes the
 			// immutable realization baseline; identity and reference stay.
 			await deps.expenses.setActualAmount(expenseId, input.actualAmountMinor, now);
 			await deps.allocations.replaceLines(expenseId, "actual", lines);
-			if (input.allocation) {
+			if (allocation || scaledFixed) {
 				await deps.allocationParams.replaceParams(
 					expenseId,
-					input.allocation.members.map((member) => ({
+					resolvedAllocation.members.map((member) => ({
 						memberId: member.memberId,
-						value: paramValueFor(input.allocation!.method, member),
+						value: paramValueFor(resolvedAllocation.method, member),
 					})),
 				);
-				await deps.expenses.updateExpected(expenseId, { allocationMethod: input.allocation.method }, now);
+			}
+			if (allocation) {
+				await deps.expenses.updateExpected(expenseId, { allocationMethod: resolvedAllocation.method }, now);
 			}
 			return { ...expense, actualAmountMinor: input.actualAmountMinor, updatedAt: now };
 		},
@@ -837,20 +849,30 @@ export function createExpenseService(
 					if (visibleReplacement) {
 						throw new Error("expense_already_reversed");
 					}
-				}
-				const priorReplacement = replacement ? await deps.expenses.findReplacement(expenseId) : null;
-				if (priorReplacement) {
-					// Adopt the crashed attempt's invisible replacement into this
-					// operation so completing the retry publishes it.
-					const visible = await deps.expenses.findVisibleById(priorReplacement.id);
-					if (!visible) {
-						await deps.expenses.reattributeOperation(priorReplacement.id, operationId, now);
+					// Crash after the flip: the operation designated a replacement
+					// that never became visible. Adopt ONLY that exact row, and only
+					// when it matches the submitted input — the crashed operation's
+					// intent. A different retry input inserts fresh instead.
+					if (replacement) {
+						const prior = await deps.expenses.findById(expense.reversedById);
+						if (
+							prior &&
+							prior.replacesId === expenseId &&
+							prior.plannedAmountMinor === (replacement.plannedAmountMinor ?? null) &&
+							prior.actualAmountMinor === (replacement.actualAmountMinor ?? null) &&
+							prior.allocationMethod === replacement.allocation.method
+						) {
+							await deps.expenses.reattributeOperation(prior.id, operationId, now);
+							return { reversal: expense, replacement: { ...prior, operationId }, releasedExpectedIds: [] };
+						}
 					}
-					return { reversal: expense, replacement: { ...priorReplacement, operationId } };
 				}
+				// Pure reversal already flipped: nothing left to publish.
 				if (!replacement) {
-					return { reversal: expense, replacement: null };
+					return { reversal: expense, replacement: null, releasedExpectedIds: [] };
 				}
+				// No designated replacement (or it no longer matches): insert
+				// fresh under this operation and re-point the flip at it.
 				const created = await insertExpense(
 					householdId,
 					{ ...replacement, inherit: await buildInherit() },
@@ -859,7 +881,7 @@ export function createExpenseService(
 					operationId,
 				);
 				await deps.expenses.markReversed(expenseId, created.id, now);
-				return { reversal: { ...expense, reversedById: created.id }, replacement: created };
+				return { reversal: { ...expense, reversedById: created.id }, replacement: created, releasedExpectedIds: [] };
 			}
 
 			// Cancellation, not correction, covers plain unpaid expected
@@ -886,14 +908,7 @@ export function createExpenseService(
 
 			// Application reversals flow through the payment service's single
 			// seam (the settlement-aware guard will extend exactly there).
-			if (applicationReversals) {
-				await applicationReversals.reverseApplicationsForExpense(householdId, expenseId, now, operationId);
-			} else {
-				const activeApplications = await deps.applications.findActiveByExpense(expenseId);
-				for (const application of activeApplications) {
-					await deps.applications.markReversed(application.id, now);
-				}
-			}
+			await applicationReversals.reverseApplicationsForExpense(householdId, expenseId, now, operationId);
 
 			let replacementRecord: ExpenseRecord | null = null;
 			if (replacement) {
@@ -907,13 +922,16 @@ export function createExpenseService(
 			}
 
 			// Correction dissolves expected↔actual matches on either side so
-			// both records stay matchable afterwards.
+			// both records stay matchable afterwards; the released matchers are
+			// returned so the caller can audit the unlink.
+			const releasedExpectedIds: string[] = [];
 			if (expense.realizedByExpenseId !== null) {
 				await deps.expenses.setRealizedBy(expenseId, null, now);
 			}
 			for (const matcher of await deps.expenses.findByRealizedBy(expenseId)) {
 				if (matcher.status === "posted") {
 					await deps.expenses.setRealizedBy(matcher.id, null, now);
+					releasedExpectedIds.push(matcher.id);
 				}
 			}
 
@@ -922,6 +940,7 @@ export function createExpenseService(
 			return {
 				reversal: { ...expense, status: "reversed", reversedById: replacementRecord?.id ?? null },
 				replacement: replacementRecord,
+				releasedExpectedIds,
 			};
 		},
 

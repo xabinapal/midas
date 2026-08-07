@@ -98,6 +98,7 @@ function makeMocks(): Mocks {
 			periodStore.find((row) => row.householdId === householdId && row.slug === slug),
 		),
 		findByHousehold: vi.fn(async (householdId) => periodStore.filter((row) => row.householdId === householdId)),
+		findVisibleByHousehold: vi.fn(async (householdId) => periodStore.filter((row) => row.householdId === householdId)),
 		reattributeOperation: vi.fn(async (id, operationId) => {
 			const row = periodStore.find((entry) => entry.id === id);
 			if (row) {
@@ -209,11 +210,13 @@ function makeMocks(): Mocks {
 		findByHousehold: vi.fn(async () => [
 			{ id: "m-a", householdId: HOUSEHOLD, displayName: "Alex", isActive: true, defaultWeight: 1 },
 			{ id: "m-b", householdId: HOUSEHOLD, displayName: "Sam", isActive: true, defaultWeight: 2 },
+			{ id: "m-x", householdId: HOUSEHOLD, displayName: "Noa", isActive: false, defaultWeight: 1 },
 		]),
 		findById: vi.fn(async (id: string) =>
 			[
 				{ id: "m-a", householdId: HOUSEHOLD, displayName: "Alex", isActive: true, defaultWeight: 1 },
 				{ id: "m-b", householdId: HOUSEHOLD, displayName: "Sam", isActive: true, defaultWeight: 2 },
+				{ id: "m-x", householdId: HOUSEHOLD, displayName: "Noa", isActive: false, defaultWeight: 1 },
 			].find((member) => member.id === id),
 		),
 	} as unknown as MemberRepository;
@@ -461,6 +464,21 @@ describe("occurrence materialization", () => {
 		expect(result.created[0]!.scheduledDueDate).toBe("2026-08-05");
 		expect(result.created[0]!.plannedAmountMinor).toBe(90000);
 		expect(result.created[0]!.reportingPeriodId).toBe(result.period.id);
+	});
+
+	it("reports failing templates while generating healthy siblings", async () => {
+		// This template's only allocation member is inactive, so its
+		// occurrence cannot resolve; the healthy template still generates.
+		mocks.templateStore.push(templateRecord({ id: "template-broken", description: "Luz" }));
+		mocks.templateParamStore.push({ id: "tp-broken", templateId: "template-broken", memberId: "m-x", value: null });
+		await seedMonthlyTemplate();
+
+		const result = await mocks.service.materializeStandardPeriod(HOUSEHOLD, "2026-08", USER, NOW, "op-1");
+
+		expect(result.created).toHaveLength(1);
+		expect(result.created[0]!.templateId).toBe("template-1");
+		expect(result.failures).toHaveLength(1);
+		expect(result.failures[0]).toEqual({ templateId: "template-broken", reason: "template_members_empty" });
 	});
 
 	it("is idempotent across retries and repeated opens", async () => {

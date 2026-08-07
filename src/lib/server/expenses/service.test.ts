@@ -96,6 +96,15 @@ interface Mocks {
 	members: MemberRepository;
 	accounts: AccountRepository;
 	service: ExpenseService;
+	applicationReversals: {
+		calls: { householdId: string; expenseId: string; operationId: string | null }[];
+		reverseApplicationsForExpense: (
+			householdId: string,
+			expenseId: string,
+			now: string,
+			operationId: string | null,
+		) => Promise<void>;
+	};
 	expenseStore: ExpenseRecord[];
 	allocationStore: ExpenseAllocationLineRecord[];
 	paramStore: ExpenseAllocationParamRecord[];
@@ -128,9 +137,6 @@ function makeMocks(): Mocks {
 			});
 		}),
 		findById: vi.fn(async (id) => categoryStore.find((row) => row.id === id)),
-		findBySlug: vi.fn(async (householdId, slug) =>
-			categoryStore.find((row) => row.householdId === householdId && row.slug === slug),
-		),
 		findByHousehold: vi.fn(async (householdId) => categoryStore.filter((row) => row.householdId === householdId)),
 		update: vi.fn(async (id, fields, now) => {
 			const row = categoryStore.find((entry) => entry.id === id);
@@ -168,6 +174,7 @@ function makeMocks(): Mocks {
 			periodStore.find((row) => row.householdId === householdId && row.slug === slug),
 		),
 		findByHousehold: vi.fn(async (householdId) => periodStore.filter((row) => row.householdId === householdId)),
+		findVisibleByHousehold: vi.fn(async (householdId) => periodStore.filter((row) => row.householdId === householdId)),
 		reattributeOperation: vi.fn(async (id, operationId) => {
 			const row = periodStore.find((entry) => entry.id === id);
 			if (row) {
@@ -186,10 +193,10 @@ function makeMocks(): Mocks {
 		listByPeriod: vi.fn(async (householdId, reportingPeriodId) =>
 			expenseStore.filter((row) => row.householdId === householdId && row.reportingPeriodId === reportingPeriodId),
 		),
-		listByHousehold: vi.fn(async (householdId) => expenseStore.filter((row) => row.householdId === householdId)),
 		listPostedByHousehold: vi.fn(async (householdId, limit = 200) =>
 			expenseStore.filter((row) => row.householdId === householdId && row.status === "posted").slice(0, limit),
 		),
+		listByChainRoot: vi.fn(async (chainRootId) => expenseStore.filter((row) => row.chainRootId === chainRootId)),
 		findReferencesLike: vi.fn(async (householdId, base) =>
 			expenseStore
 				.filter(
@@ -206,7 +213,6 @@ function makeMocks(): Mocks {
 		findVisibleOccurrence: vi.fn(async (templateId, scheduledDueDate) =>
 			expenseStore.find((row) => row.templateId === templateId && row.scheduledDueDate === scheduledDueDate),
 		),
-		findReplacement: vi.fn(async (replacesId) => expenseStore.find((row) => row.replacesId === replacesId)),
 		findByRealizedBy: vi.fn(async (actualExpenseId) =>
 			expenseStore.filter((row) => row.realizedByExpenseId === actualExpenseId),
 		),
@@ -225,7 +231,6 @@ function makeMocks(): Mocks {
 			const row = expenseStore.find((entry) => entry.id === id);
 			if (row) Object.assign(row, fields, { updatedAt: now });
 		}),
-		markPosted: vi.fn(),
 		markCancelled: vi.fn(async (id, now) => {
 			const row = expenseStore.find((entry) => entry.id === id);
 			if (row) {
@@ -314,6 +319,7 @@ function makeMocks(): Mocks {
 			applicationStore.push({ ...input });
 		}),
 		findById: vi.fn(async (id) => applicationStore.find((row) => row.id === id)),
+		findVisibleById: vi.fn(async (id) => applicationStore.find((row) => row.id === id)),
 		findActiveByExpense: vi.fn(async (expenseId) =>
 			applicationStore.filter((row) => row.expenseId === expenseId && row.status === "active"),
 		),
@@ -358,13 +364,13 @@ function makeMocks(): Mocks {
 	const members = {
 		findByHousehold: vi.fn(async () => [
 			{ id: "m-a", householdId: HOUSEHOLD, displayName: "Alex", isActive: true, defaultWeight: 1 },
-			{ id: "m-b", householdId: HOUSEHOLD, displayName: "Sam", isActive: true, defaultWeight: 1 },
+			{ id: "m-b", householdId: HOUSEHOLD, displayName: "Sam", isActive: true, defaultWeight: 3 },
 			{ id: "m-c", householdId: HOUSEHOLD, displayName: "Jordan", isActive: false, defaultWeight: 1 },
 		]),
 		findById: vi.fn(async (id: string) =>
 			[
 				{ id: "m-a", householdId: HOUSEHOLD, displayName: "Alex", isActive: true, defaultWeight: 1 },
-				{ id: "m-b", householdId: HOUSEHOLD, displayName: "Sam", isActive: true, defaultWeight: 1 },
+				{ id: "m-b", householdId: HOUSEHOLD, displayName: "Sam", isActive: true, defaultWeight: 3 },
 				{ id: "m-c", householdId: HOUSEHOLD, displayName: "Jordan", isActive: false, defaultWeight: 1 },
 			].find((member) => member.id === id),
 		),
@@ -374,15 +380,34 @@ function makeMocks(): Mocks {
 		findById: vi.fn(async () => undefined),
 	} as unknown as AccountRepository;
 
+	// The production port is paymentService.reverseApplicationsForExpense;
+	// tests inject a recording fake that performs the same flip.
+	const applicationReversals = {
+		calls: [] as { householdId: string; expenseId: string; operationId: string | null }[],
+		reverseApplicationsForExpense: vi.fn(
+			async (householdId: string, expenseId: string, now: string, operationId: string | null) => {
+				applicationReversals.calls.push({ householdId, expenseId, operationId });
+				for (const application of applicationStore) {
+					if (application.expenseId === expenseId && application.status === "active") {
+						application.status = "reversed";
+						application.reversedAt = now;
+					}
+				}
+			},
+		),
+	};
+
 	const service = createExpenseService(
 		{ categories, periods, expenses, allocations, allocationParams, applications, evidence },
 		{ members, accounts },
+		applicationReversals,
 	);
 
 	return {
 		categories,
 		periods,
 		expenses,
+		applicationReversals,
 		allocations,
 		allocationParams,
 		applications,
@@ -636,7 +661,11 @@ describe("draft and expected editing", () => {
 		);
 		expect(updated.dueDate).toBe("2026-08-20");
 		const lines = (await mocks.allocations.findByExpense("expense-1")).filter((line) => line.basis === "planned");
-		expect(lines.reduce((sum, line) => sum + line.amountMinor, 0)).toBe(8000);
+		// Current household weights (1:3), not the stored (null) params.
+		expect(lines.map((line) => [line.memberId, line.amountMinor])).toEqual([
+			["m-a", 2000],
+			["m-b", 6000],
+		]);
 	});
 
 	it("edits a fixed-allocation expected expense without touching the split", async () => {
@@ -758,7 +787,10 @@ describe("estimate actualization", () => {
 		);
 		expect(actual.actualAmountMinor).toBe(9000);
 		const lines = (await mocks.allocations.findByExpense("expense-1")).filter((line) => line.basis === "actual");
-		expect(lines.reduce((sum, line) => sum + line.amountMinor, 0)).toBe(9000);
+		expect(lines.map((line) => [line.memberId, line.amountMinor])).toEqual([
+			["m-a", 2250],
+			["m-b", 6750],
+		]);
 	});
 
 	it("actualizes a fixed-allocation estimate keeping the stored split", async () => {
@@ -777,6 +809,40 @@ describe("estimate actualization", () => {
 			"op-1",
 		);
 		expect(actual.actualAmountMinor).toBe(8000);
+		const lines = (await mocks.allocations.findByExpense("expense-1")).filter((line) => line.basis === "actual");
+		expect(lines.map((line) => [line.memberId, line.amountMinor])).toEqual([
+			["m-a", 5000],
+			["m-b", 3000],
+		]);
+	});
+
+	it("scales the fixed split proportionally when the actual amount differs", async () => {
+		mocks.expenseStore.push(
+			expenseRecord({ plannedAmountMinor: 8000, actualAmountMinor: null, allocationMethod: "fixed" }),
+		);
+		mocks.paramStore.push(
+			{ id: "p-1", expenseId: "expense-1", memberId: "m-a", value: 6000 },
+			{ id: "p-2", expenseId: "expense-1", memberId: "m-b", value: 4000 },
+		);
+		const actual = await mocks.service.actualizeExpense(
+			HOUSEHOLD,
+			"expense-1",
+			{ actualAmountMinor: 11000 },
+			NOW,
+			"op-1",
+		);
+		expect(actual.actualAmountMinor).toBe(11000);
+		const lines = (await mocks.allocations.findByExpense("expense-1")).filter((line) => line.basis === "actual");
+		expect(lines.map((line) => [line.memberId, line.amountMinor])).toEqual([
+			["m-a", 6600],
+			["m-b", 4400],
+		]);
+		// The stored method metadata follows the scaled split.
+		const params = await mocks.allocationParams.findByExpense("expense-1");
+		expect(params.map((param) => [param.memberId, param.value])).toEqual([
+			["m-a", 6600],
+			["m-b", 4400],
+		]);
 	});
 });
 
@@ -993,6 +1059,27 @@ describe("expense correction", () => {
 		expect(replacement).toBeNull();
 	});
 
+	it("reverses applications through the injected payment-service port", async () => {
+		mocks.expenseStore.push(expenseRecord());
+		mocks.applicationStore.push({
+			id: "app-1",
+			householdId: HOUSEHOLD,
+			paymentId: "payment-1",
+			expenseId: "expense-1",
+			amountMinor: 4000,
+			status: "active",
+			recordedAt: NOW,
+			reversedAt: null,
+			operationId: null,
+		});
+		await mocks.service.correctExpense(HOUSEHOLD, "expense-1", null, USER, NOW, "op-7");
+		expect(mocks.applicationReversals.calls).toEqual([
+			{ householdId: HOUSEHOLD, expenseId: "expense-1", operationId: "op-7" },
+		]);
+		expect(mocks.applications.markReversed).not.toHaveBeenCalled();
+		expect(mocks.applicationStore[0]!.status).toBe("reversed");
+	});
+
 	it("resumes a half-applied correction", async () => {
 		mocks.expenseStore.push(expenseRecord({ status: "reversed", reversedById: null }));
 		const { reversal, replacement } = await mocks.service.correctExpense(
@@ -1050,7 +1137,11 @@ describe("expense correction", () => {
 		expect(replacement!.plannedVersion).toBe(3);
 		const lines = await mocks.allocations.findByExpense(replacement!.id);
 		const plannedLines = lines.filter((line) => line.basis === "planned");
-		expect(plannedLines.reduce((sum, line) => sum + line.amountMinor, 0)).toBe(8000);
+		// The frozen baseline travels verbatim, never re-resolved.
+		expect(plannedLines.map((line) => [line.memberId, line.amountMinor])).toEqual([
+			["m-a", 4000],
+			["m-b", 4000],
+		]);
 		const actualLines = lines.filter((line) => line.basis === "actual");
 		expect(actualLines.reduce((sum, line) => sum + line.amountMinor, 0)).toBe(9500);
 	});
@@ -1070,10 +1161,16 @@ describe("expense correction", () => {
 		expect(expected.realizedByExpenseId).toBeNull();
 	});
 
-	it("reattributes a crashed attempt's invisible replacement on resume", async () => {
+	it("adopts the designated replacement when the retry input matches", async () => {
 		mocks.expenseStore.push(
 			expenseRecord({ status: "reversed", reversedById: "replacement-1" }),
-			expenseRecord({ id: "replacement-1", replacesId: "expense-1", chainRootId: "expense-1", operationId: "op-dead" }),
+			expenseRecord({
+				id: "replacement-1",
+				replacesId: "expense-1",
+				chainRootId: "expense-1",
+				operationId: "op-dead",
+				actualAmountMinor: 12000,
+			}),
 		);
 		// The replacement is invisible: the mock's findVisibleById hides rows
 		// bound to the dead operation.
@@ -1091,6 +1188,61 @@ describe("expense correction", () => {
 		expect(replacement!.id).toBe("replacement-1");
 		expect(replacement!.operationId).toBe("op-new");
 		expect(mocks.expenseStore.find((row) => row.id === "replacement-1")!.operationId).toBe("op-new");
+		expect(mocks.expenseStore).toHaveLength(2);
+	});
+
+	it("inserts a fresh replacement when the retry input differs from the crashed attempt", async () => {
+		mocks.expenseStore.push(
+			expenseRecord({ status: "reversed", reversedById: "replacement-1" }),
+			expenseRecord({
+				id: "replacement-1",
+				replacesId: "expense-1",
+				chainRootId: "expense-1",
+				operationId: "op-dead",
+				actualAmountMinor: 10000,
+			}),
+		);
+		(mocks.expenses.findVisibleById as ReturnType<typeof vi.fn>).mockImplementation(async (id: string) =>
+			mocks.expenseStore.find((row) => row.id === id && row.operationId !== "op-dead"),
+		);
+		const { replacement } = await mocks.service.correctExpense(
+			HOUSEHOLD,
+			"expense-1",
+			baseInput({ actualAmountMinor: 12000 }),
+			USER,
+			NOW,
+			"op-new",
+		);
+		expect(replacement!.id).not.toBe("replacement-1");
+		expect(mocks.expenseStore).toHaveLength(3);
+		// The flip re-points at the fresh replacement.
+		expect(mocks.expenseStore.find((row) => row.id === "expense-1")!.reversedById).toBe(replacement!.id);
+	});
+
+	it("never adopts a stale orphan when no replacement was designated", async () => {
+		mocks.expenseStore.push(
+			expenseRecord({ status: "reversed", reversedById: null }),
+			expenseRecord({
+				id: "replacement-1",
+				replacesId: "expense-1",
+				chainRootId: "expense-1",
+				operationId: "op-dead",
+				actualAmountMinor: 12000,
+			}),
+		);
+		(mocks.expenses.findVisibleById as ReturnType<typeof vi.fn>).mockImplementation(async (id: string) =>
+			mocks.expenseStore.find((row) => row.id === id && row.operationId !== "op-dead"),
+		);
+		const { replacement } = await mocks.service.correctExpense(
+			HOUSEHOLD,
+			"expense-1",
+			baseInput({ actualAmountMinor: 12000 }),
+			USER,
+			NOW,
+			"op-new",
+		);
+		expect(replacement!.id).not.toBe("replacement-1");
+		expect(mocks.expenseStore).toHaveLength(3);
 	});
 });
 

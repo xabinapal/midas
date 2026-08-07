@@ -8,6 +8,8 @@
  * Framework-neutral: no Kysely, no SvelteKit, no bindings.
  */
 
+import { parseAmountToMinorUnits } from "$lib/accounts/money";
+
 export type AllocationMethodKind = "equal" | "default_weight" | "custom_weight" | "percentage" | "fixed";
 
 export interface AllocationMemberSelection {
@@ -89,6 +91,60 @@ function largestRemainder(totalMinor: number, weights: { memberId: string; weigh
 	return shares
 		.map((share) => ({ memberId: share.memberId, amountMinor: share.floor }))
 		.sort((a, b) => (a.memberId < b.memberId ? -1 : 1));
+}
+
+/**
+ * Builds member selections from form arrays: member ids plus raw per-member
+ * value strings (weights, percents, or formatted amounts). The single owner
+ * of the form→domain mapping used by expense forms and live previews.
+ * `fixed` values parse through the household currency; an unparseable value
+ * becomes -1 so domain validation rejects it with the balance error.
+ */
+export function selectionFromFormValues(
+	method: AllocationMethodKind,
+	memberIds: string[],
+	rawValues: string[],
+	currency: string,
+	defaultWeightByMember?: Map<string, number>,
+): AllocationMemberSelection[] {
+	return memberIds.map((memberId, index) => {
+		const raw = rawValues[index] ?? "";
+		switch (method) {
+			case "custom_weight":
+				return { memberId, weight: Number(raw || 0) };
+			case "percentage":
+				return { memberId, basisPoints: Math.round(Number(raw || 0) * 100) };
+			case "fixed":
+				return { memberId, fixedAmountMinor: parseAmountToMinorUnits(raw || "", currency) ?? -1 };
+			case "default_weight":
+				return { memberId, defaultWeight: defaultWeightByMember?.get(memberId) ?? 0 };
+			default:
+				return { memberId };
+		}
+	});
+}
+
+/**
+ * Scales a stored fixed split to a new total, preserving proportions
+ * deterministically (old amounts act as weights, largest remainder decides
+ * leftover units, member identifiers break ties). Used when an actual or
+ * corrected amount changes under the fixed method. Zero shares stay zero.
+ */
+export function scaleFixedSelections(
+	fixedParams: { memberId: string; value: number | null }[],
+	newTotalMinor: number,
+): AllocationMemberSelection[] {
+	const weights = fixedParams.map((param) => ({ memberId: param.memberId, weight: param.value ?? 0 }));
+	// A split that never allocated cannot scale proportionally; fall back to
+	// equal shares rather than dividing by zero.
+	if (weights.reduce((sum, entry) => sum + entry.weight, 0) <= 0) {
+		return resolveAllocations("equal", newTotalMinor, weights).map((line) => ({
+			memberId: line.memberId,
+			fixedAmountMinor: line.amountMinor,
+		}));
+	}
+	const lines = largestRemainder(newTotalMinor, weights);
+	return lines.map((line) => ({ memberId: line.memberId, fixedAmountMinor: line.amountMinor }));
 }
 
 export function resolveAllocations(

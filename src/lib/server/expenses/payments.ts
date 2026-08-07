@@ -69,7 +69,7 @@ export interface PaymentService {
 		applicationId: string,
 		now: string,
 		operationId: string | null,
-	): Promise<PaymentApplicationRecord>;
+	): Promise<{ application: PaymentApplicationRecord; flipped: boolean }>;
 	/**
 	 * The single seam through which every expense-side application reversal
 	 * flows (expense corrections, and later the settlement-aware guard).
@@ -148,6 +148,11 @@ export function createPaymentService(deps: PaymentDeps, accountDeps: AccountDeps
 		const payment = await requireVisiblePayment(householdId, paymentId);
 		if (payment.status !== "posted" && payment.status !== "reversed") {
 			throw new Error("payment_not_posted");
+		}
+		// Reversal rows are terminal bookkeeping, never correctable payments:
+		// correcting one would print money into the balance projection.
+		if (payment.reversalOfId !== null) {
+			throw new Error("payment_is_reversal");
 		}
 		if (await isEffectivelyReversed(payment)) {
 			throw new Error("payment_already_reversed");
@@ -292,6 +297,11 @@ export function createPaymentService(deps: PaymentDeps, accountDeps: AccountDeps
 			if (payment.status !== "posted" || (await isEffectivelyReversed(payment))) {
 				throw new Error("payment_not_posted");
 			}
+			// A reversal row holds money already returned to the account;
+			// applying it would mark expenses paid with nothing behind them.
+			if (payment.reversalOfId !== null) {
+				throw new Error("payment_is_reversal");
+			}
 
 			// Validate every line before writing anything: a rejected
 			// application leaves all balances unchanged.
@@ -351,13 +361,16 @@ export function createPaymentService(deps: PaymentDeps, accountDeps: AccountDeps
 
 		async reverseApplication(householdId, applicationId, now, operationId) {
 			void operationId;
-			const application = await deps.applications.findById(applicationId);
+			const application = await deps.applications.findVisibleById(applicationId);
 			if (!application || application.householdId !== householdId) {
 				throw new Error("application_not_found");
 			}
-			// markReversed flips only active rows, so reversal is idempotent.
+			if (application.status === "reversed") {
+				// Idempotent no-op: callers must not audit a second reversal.
+				return { application, flipped: false };
+			}
 			await deps.applications.markReversed(applicationId, now);
-			return { ...application, status: "reversed", reversedAt: now };
+			return { application: { ...application, status: "reversed", reversedAt: now }, flipped: true };
 		},
 
 		async reverseApplicationsForExpense(householdId, expenseId, now, operationId) {
@@ -400,11 +413,10 @@ export function createPaymentService(deps: PaymentDeps, accountDeps: AccountDeps
 			}
 
 			// Mirror the transfer correction protocol exactly: always insert
-			// fresh reversal rows under the current operation and re-point the
-			// flip. A crashed attempt's invisible rows stay orphaned instead of
-			// being adopted, so the retrying operation always heals the chain.
+			// fresh reversal rows under the current operation. A crashed
+			// attempt's invisible rows stay orphaned instead of being adopted,
+			// so the retrying operation always heals the chain.
 			const reversal = await insertReversalRows(payment, now, operationId);
-			await deps.payments.markReversed(payment.id, reversal.id);
 
 			let replacementRecord: PaymentRecord | null = null;
 			if (replacement) {
@@ -414,6 +426,10 @@ export function createPaymentService(deps: PaymentDeps, accountDeps: AccountDeps
 					replacesId: payment.id,
 				});
 			}
+
+			// The visible flip stays last: a crash before it leaves every new
+			// row invisible and the whole correction retryable.
+			await deps.payments.markReversed(payment.id, reversal.id);
 
 			return { reversal, replacement: replacementRecord };
 		},
