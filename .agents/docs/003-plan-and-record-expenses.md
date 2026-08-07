@@ -221,7 +221,72 @@ drafts.
 - `renameCategory` wired into the categorias page (inline rename form).
 - Expense detail history merges the expense's payment events
   (`subjectIds` filter); activity feed rows link to their detail screens
-  (expense/payment/account).
+  (expense/payment/account/member/template).
+
+## Adversarial re-review (2026-08-06, four lenses, re-review loop)
+
+Re-verified every fix against code and hunted fix-introduced regressions.
+Verdict: **REVISE** — the first pass closed its original scenarios but left
+one new HIGH and nine MEDIUM residual issues, all fixed below in fix pass 2
+(573 tests green: 444 unit + 86 component + 43 integration).
+
+### Implemented — re-review HIGH
+
+- **N-01** Reversal payment rows were applicable and correctable: reversing
+  a reversal printed money into the balance projection, and applying one
+  marked expenses paid with returned money. Now rejected
+  (`payment_is_reversal`) in `requireCorrectablePayment` and `applyPayment`,
+  hidden from `/pagos/[id]` apply/correct sections, with regression tests.
+
+### Implemented — re-review MEDIUM
+
+- **N-02** Resume adoption redesigned: adopt only the replacement the flip
+  designated (`reversedById`), only when it matches the submitted input;
+  otherwise insert fresh and re-point. Stale-orphan publishing eliminated.
+- **N-03** `correctPayment` flips `markReversed` LAST (crash window
+  narrowed); `/pagos/[id]` shows a resumable correction state and
+  visibility-filters its correction chain.
+- **N-04** `ApplicationReversalPort` is now required — no fallback
+  implementation; tests inject a recording port; direct
+  `reverseApplicationsForExpense` coverage added.
+- **N-05** Expense chain scan uses `listByChainRoot` (all statuses);
+  replacements link back to their reversed originals again.
+- **N-06** Correction-driven match releases return `releasedExpectedIds`
+  and emit `expense_unmatched` activity events from all three routes.
+- **N-07** Fixed splits scale proportionally at actualization via the new
+  pure `scaleFixedSelections` (old amounts as weights), refreshing method
+  metadata; the fixed-actualization trap is gone.
+- **N-08** Stored-but-inactive members render as removable "(inactivo)"
+  rows in editar/confirmar/corregir; unchecking drops them so edits,
+  actualizations, and corrections succeed.
+- **N-09** F-007 failure pipeline tested: planning containment unit test
+  (failing template + healthy sibling) and `/gastos` alert component test.
+- **N-10** `planningService.listPeriods` uses a visibility-filtered read;
+  raw reads remain only for slug uniqueness and the adoption protocol.
+
+### Implemented — re-review LOW
+
+`selectionFromFormValues` single form→domain mapping (nuevo/editar actions
+and previews); fixed previews share `scaleFixedSelections`; dead repository
+methods removed (`expenses.listByHousehold`, `categories.findBySlug`,
+`expenses.markPosted`, `expenses.findReplacement`); `subjectLink` extended
+to member/template; `expense_already_satisfied`/`payment_is_reversal`
+mapped in apply routes; application reversal uses a visible read and skips
+duplicate audit events; payment-replace info alert is mode-accurate;
+test hardening (operation-root assertions in the route harness, per-member
+weight/line assertions in the previously vacuous default-weight/fixed/F-010
+tests, application-seeded replacement rejection, corregir admission route
+test, confirmar typed-amount preview test, linked-actual and
+reversed-applications component tests, F-019 port-spy test).
+
+### Documented (product decisions pending)
+
+- Corrected payment/expense dates keep the original ordering anchor (the
+  transfer protocol); observations recompute theirs — the two protocols
+  intentionally disagree pending a product decision on restated timelines.
+- A pre-paid estimate's payment is invisible in period totals (spec) while
+  its row shows partial payment; totals-card annotation deferred to the
+  monthly-position change.
 
 ### Documented assumptions
 
@@ -256,10 +321,14 @@ drafts.
 
 ## Known test debt / follow-ups
 
-- Route-action (form POST through SvelteKit) coverage stays at component +
-  service level; no HTTP-level action tests (see F-018).
-- `sumPeriodTotals`/`buildExpenseViews` lack direct unit tests (F-016).
-- No operation-visibility integration coverage for expense tables (F-017).
+- `buildExpenseViews → sumPeriodTotals` is not exercised as one pipeline
+  (each half is tested separately).
+- `payment_account_entries` visibility across the completion boundary is
+  not asserted in the pending-root integration test (the projection itself
+  is protocol-covered elsewhere).
+- The recording-D1 route harness ignores `.where` filters; it proves
+  composition, not repository filter correctness (D1 integration covers
+  those).
 - Balance anchor semantics: same-effectiveAt movements order by id — a
   payment effective exactly at an observation's timestamp may sort before
   the anchor (pre-existing domain behavior, surfaced in integration tests).
@@ -269,6 +338,19 @@ drafts.
 - `9248964` docs: own session handoffs by the orchestrator and merge session 003
 - `9bc23c6` feat: plan and record household expenses with payments and recurrence
 - `441901b` feat: add spanish expense, payment, and planning workflows
+- `a67a96a` docs: record commit history in session 003 handoff
+- `e7257c9` fix: harden expense and payment protocols after adversarial re-review
+- `fa0dc3e` fix: harden expense workflows in the spanish UI
+- `2d7256e` docs(openspec): archive plan-and-record-expenses and sync capability specs
+
+## Archive record
+
+Archived 2026-08-06 to `openspec/changes/archive/2026-08-06-plan-and-record-expenses/`
+after both adversarial review rounds and their fix passes (573 tests green:
+444 unit + 86 component + 43 integration; format/lint/check clean). The two
+capability specs were synced into `openspec/specs/expense-management/spec.md`
+and `openspec/specs/expense-planning/spec.md`; strict validation passes on
+all 13 canonical specs.
 
 ## Recommendations for the next session
 
