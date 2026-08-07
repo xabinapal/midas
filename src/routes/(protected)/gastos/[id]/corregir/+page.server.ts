@@ -2,7 +2,7 @@ import { error, fail, redirect } from "@sveltejs/kit";
 import { message, setError, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { formatMinorUnits, parseAmountToMinorUnits } from "$lib/accounts/money";
-import { resolveAllocations, selectionFromParams, type AllocationMemberSelection } from "$lib/expenses/allocation";
+import { scaleFixedSelections, selectionFromParams, type AllocationMemberSelection } from "$lib/expenses/allocation";
 import { applicableAmountMinor } from "$lib/expenses/model";
 import { expenseCorrectionSchema } from "$lib/expenses/schemas";
 import { insertValidatedActivity } from "$lib/server/activity/insert";
@@ -45,12 +45,20 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		repositories.members.findByHousehold(householdId),
 	]);
 
+	// Stored params may reference members deactivated after the expense was
+	// posted; the split display and preview still name them.
+	const storedMemberIds = new Set(allocationParams.map((param) => param.memberId));
+	const storedInactiveMembers = members
+		.filter((member) => !member.isActive && storedMemberIds.has(member.id))
+		.map((member) => ({ id: member.id, displayName: member.displayName }));
+
 	return {
 		expense,
 		currency: household?.currency ?? "EUR",
 		applicableMinor: applicableAmountMinor(expense.plannedAmountMinor, expense.actualAmountMinor),
 		allocationParams: allocationParams.map((param) => ({ memberId: param.memberId, value: param.value })),
 		members: members.filter((member) => member.isActive),
+		storedInactiveMembers,
 		form: await superValidate({ mode: "reverse" }, zod4(expenseCorrectionSchema)),
 	};
 };
@@ -77,7 +85,14 @@ export const actions: Actions = {
 			};
 
 			if (form.data.mode === "reverse") {
-				await expenseService.correctExpense(householdId, params.id, null, locals.user!.id, now, ctx.operationId);
+				const { releasedExpectedIds } = await expenseService.correctExpense(
+					householdId,
+					params.id,
+					null,
+					locals.user!.id,
+					now,
+					ctx.operationId,
+				);
 				await insertValidatedActivity(locals.db, {
 					householdId,
 					eventType: "expense_reversed",
@@ -93,6 +108,21 @@ export const actions: Actions = {
 					},
 					operationId: ctx.operationId,
 				});
+				for (const releasedId of releasedExpectedIds) {
+					const released = await repositories.expenses.findVisibleById(releasedId);
+					await insertValidatedActivity(locals.db, {
+						householdId,
+						eventType: "expense_unmatched",
+						subjectType: "expense",
+						subjectId: releasedId,
+						actorUserId: locals.user!.id,
+						summary: {
+							expenseDescription: released?.description ?? "",
+							...(released?.reference ? { expenseReference: released.reference } : {}),
+						},
+						operationId: ctx.operationId,
+					});
+				}
 				return { redirectId: params.id };
 			}
 
@@ -111,12 +141,7 @@ export const actions: Actions = {
 				// Fixed splits scale deterministically: the old fixed amounts act
 				// as weights and the resolved proportional shares become the new
 				// fixed amounts (the method itself stays "fixed").
-				const scaled = resolveAllocations(
-					"custom_weight",
-					amountMinor,
-					allocationParams.map((param) => ({ memberId: param.memberId, weight: param.value ?? 0 })),
-				);
-				members = scaled.map((line) => ({ memberId: line.memberId, fixedAmountMinor: line.amountMinor }));
+				members = scaleFixedSelections(allocationParams, amountMinor);
 			} else {
 				const householdMembers = await repositories.members.findByHousehold(householdId);
 				const defaultWeightByMember = new Map(householdMembers.map((member) => [member.id, member.defaultWeight]));
@@ -137,7 +162,7 @@ export const actions: Actions = {
 				accountHintId: expense.accountHintId,
 				allocation: { method: expense.allocationMethod, members },
 			};
-			const { replacement: created } = await expenseService.correctExpense(
+			const { replacement: created, releasedExpectedIds } = await expenseService.correctExpense(
 				householdId,
 				params.id,
 				replacement,
@@ -154,6 +179,21 @@ export const actions: Actions = {
 				summary: { ...baseSummary, amount: formatMinorUnits(amountMinor, currency) },
 				operationId: ctx.operationId,
 			});
+			for (const releasedId of releasedExpectedIds) {
+				const released = await repositories.expenses.findVisibleById(releasedId);
+				await insertValidatedActivity(locals.db, {
+					householdId,
+					eventType: "expense_unmatched",
+					subjectType: "expense",
+					subjectId: releasedId,
+					actorUserId: locals.user!.id,
+					summary: {
+						expenseDescription: released?.description ?? "",
+						...(released?.reference ? { expenseReference: released.reference } : {}),
+					},
+					operationId: ctx.operationId,
+				});
+			}
 			return { redirectId: created?.id ?? params.id };
 		});
 

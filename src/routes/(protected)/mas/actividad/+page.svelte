@@ -52,7 +52,11 @@
 							? resolve(`/gastos/${event.subjectLink.id}`)
 							: event.subjectLink.kind === "payment"
 								? resolve(`/pagos/${event.subjectLink.id}`)
-								: resolve(`/cuentas/${event.subjectLink.id}`)}
+								: event.subjectLink.kind === "account"
+									? resolve(`/cuentas/${event.subjectLink.id}`)
+									: event.subjectLink.kind === "member"
+										? resolve(`/mas/miembros/${event.subjectLink.id}`)
+										: resolve(`/gastos/plantillas/${event.subjectLink.id}/editar`)}
 					>
 						Ver registro
 					</a>

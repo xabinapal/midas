@@ -128,6 +128,7 @@ function data(overrides: Partial<PageData> = {}): PageData {
 		accounts,
 		members,
 		categories,
+		storedInactiveMembers: [],
 		form: superValidated(),
 		...overrides,
 	};

@@ -43,6 +43,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		repositories.members.findByHousehold(householdId),
 	]);
 
+	// Stored params may reference members deactivated after the expense was
+	// posted; the split display and preview still name them.
+	const storedMemberIds = new Set(allocationParams.map((param) => param.memberId));
+	const storedInactiveMembers = members
+		.filter((member) => !member.isActive && storedMemberIds.has(member.id))
+		.map((member) => ({ id: member.id, displayName: member.displayName }));
+
 	return {
 		expense,
 		currency: household?.currency ?? "EUR",
@@ -51,6 +58,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		allocationMethod: expense.allocationMethod,
 		allocationParams: allocationParams.map((param) => ({ memberId: param.memberId, value: param.value })),
 		members: members.filter((member) => member.isActive),
+		storedInactiveMembers,
 		form: await superValidate({ amount: "" }, zod4(actualizeSchema)),
 	};
 };

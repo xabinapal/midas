@@ -148,9 +148,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		reversedById: string | null;
 	}[] = [];
 	if (expense.chainRootId !== expense.id || expense.replacesId || expense.reversedById) {
-		const allExpenses = await repositories.expenses.listPostedByHousehold(householdId, 200);
-		chain = allExpenses
-			.filter((sibling) => sibling.chainRootId === expense.chainRootId && sibling.id !== expense.id)
+		// Chain siblings keep every status: originals stay reachable from their
+		// replacements and vice versa.
+		const siblings = await repositories.expenses.listByChainRoot(expense.chainRootId);
+		chain = siblings
+			.filter((sibling) => sibling.id !== expense.id)
 			.map((sibling) => ({
 				id: sibling.id,
 				description: sibling.description,
@@ -409,14 +411,21 @@ export const actions: Actions = {
 
 	reverse: async ({ locals, params }) => {
 		const householdId = locals.user!.householdId;
-		const { expenseService } = createExpenseServices(locals.db);
+		const { expenseService, repositories } = createExpenseServices(locals.db);
 		const household = await createHouseholdRepository(locals.db).findById(householdId);
 		const currency = household?.currency ?? "EUR";
 
 		const outcome = await withGate(locals.db, householdId, locals.user!.id, async (ctx) => {
 			const now = new Date().toISOString();
 			const expense = await expenseService.getExpense(householdId, params.id);
-			await expenseService.correctExpense(householdId, params.id, null, locals.user!.id, now, ctx.operationId);
+			const { releasedExpectedIds } = await expenseService.correctExpense(
+				householdId,
+				params.id,
+				null,
+				locals.user!.id,
+				now,
+				ctx.operationId,
+			);
 			await insertValidatedActivity(locals.db, {
 				householdId,
 				eventType: "expense_reversed",
@@ -433,6 +442,21 @@ export const actions: Actions = {
 				},
 				operationId: ctx.operationId,
 			});
+			for (const releasedId of releasedExpectedIds) {
+				const released = await repositories.expenses.findVisibleById(releasedId);
+				await insertValidatedActivity(locals.db, {
+					householdId,
+					eventType: "expense_unmatched",
+					subjectType: "expense",
+					subjectId: releasedId,
+					actorUserId: locals.user!.id,
+					summary: {
+						expenseDescription: released?.description ?? "",
+						...(released?.reference ? { expenseReference: released.reference } : {}),
+					},
+					operationId: ctx.operationId,
+				});
+			}
 		});
 
 		if (isGateConflict(outcome)) return { success: false, reason: "conflict" };

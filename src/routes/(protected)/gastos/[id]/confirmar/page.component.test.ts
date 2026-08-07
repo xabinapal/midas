@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/svelte";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { ComponentProps } from "svelte";
 import type { SuperValidated } from "sveltekit-superforms";
@@ -76,6 +77,7 @@ function data(overrides: Partial<PageData> = {}): PageData {
 			{ id: "m-1", householdId: "hh-1", displayName: "Alex", isActive: true, defaultWeight: 1 },
 			{ id: "m-2", householdId: "hh-1", displayName: "Sam", isActive: true, defaultWeight: 1 },
 		],
+		storedInactiveMembers: [],
 		form: superValidated(),
 		...overrides,
 	};
@@ -106,5 +108,21 @@ describe("ActualizeExpensePage", () => {
 		});
 
 		expect(screen.getByText("El importe real es obligatorio")).toBeTruthy();
+	});
+
+	it("recomputes the reparto preview as the real amount is typed", async () => {
+		const user = userEvent.setup();
+		render(ActualizeExpensePage, { params: { id: "exp-1" }, data: data(), form: undefined as never });
+
+		// The planned reference split shows 50,00 € per member before typing.
+		expect(screen.getAllByText(/50,00 €/)).toHaveLength(2);
+		expect(screen.queryByText(/60,00 €/)).toBeNull();
+
+		await user.type(screen.getByLabelText(/Importe real/), "120");
+
+		// The preview recomputes to 60,00 € per member; the planned reference
+		// lines stay untouched.
+		expect(screen.getAllByText(/60,00 €/)).toHaveLength(2);
+		expect(screen.getAllByText(/50,00 €/)).toHaveLength(2);
 	});
 });

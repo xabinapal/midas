@@ -151,6 +151,10 @@ export const actions: Actions = {
 					return message(form, "Activa la cuenta antes de registrar pagos", { status: 400 });
 				case "expense_not_posted":
 					return message(form, "Este gasto ya no admite pagos", { status: 400 });
+				case "expense_already_satisfied":
+					return message(form, "Este gasto previsto ya está satisfecho por su gasto real vinculado", { status: 400 });
+				case "payment_is_reversal":
+					return message(form, "Una reversión no puede aplicarse a gastos", { status: 400 });
 				default:
 					return message(form, "No se pudo registrar el pago", { status: 400 });
 			}

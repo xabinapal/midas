@@ -3,7 +3,12 @@
 	import { untrack } from "svelte";
 	import { superForm } from "sveltekit-superforms/client";
 	import { formatMinorUnits, parseAmountToMinorUnits } from "$lib/accounts/money";
-	import { resolveAllocations, selectionFromParams, type AllocationLine } from "$lib/expenses/allocation";
+	import {
+		resolveAllocations,
+		scaleFixedSelections,
+		selectionFromParams,
+		type AllocationLine,
+	} from "$lib/expenses/allocation";
 	import { ALLOCATION_METHOD_LABELS } from "$lib/expenses/terms";
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
@@ -12,7 +17,9 @@
 
 	const { form, errors, enhance, submitting, message } = superForm(untrack(() => data.form));
 
-	const memberNameById = $derived(new Map(data.members.map((member) => [member.id, member.displayName])));
+	const memberNameById = $derived(
+		new Map([...data.members, ...data.storedInactiveMembers].map((member) => [member.id, member.displayName])),
+	);
 	const defaultWeightByMember = $derived(new Map(data.members.map((member) => [member.id, member.defaultWeight])));
 
 	type AllocationPreview =
@@ -25,11 +32,22 @@
 	};
 
 	// The reparto of the actual amount is recalculated live from the stored
-	// allocation params, mirroring what the server resolves on confirm.
+	// allocation params, mirroring what the server resolves on confirm. Fixed
+	// splits scale proportionally when the real amount departs from the
+	// planned one.
 	const actualPreview = $derived.by<AllocationPreview>(() => {
 		const amountMinor = parseAmountToMinorUnits($form.amount ?? "", data.currency);
 		if (amountMinor === null || amountMinor <= 0) return { kind: "idle" };
 		try {
+			if (data.allocationMethod === "fixed" && Math.abs(amountMinor - data.plannedAmountMinor) > 0) {
+				return {
+					kind: "lines",
+					lines: scaleFixedSelections(data.allocationParams, amountMinor).map((selection) => ({
+						memberId: selection.memberId,
+						amountMinor: selection.fixedAmountMinor ?? 0,
+					})),
+				};
+			}
 			const selections = selectionFromParams(data.allocationMethod, data.allocationParams, defaultWeightByMember);
 			return { kind: "lines", lines: resolveAllocations(data.allocationMethod, amountMinor, selections) };
 		} catch (error) {

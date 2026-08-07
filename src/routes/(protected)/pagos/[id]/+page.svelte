@@ -34,6 +34,9 @@
 	let correctFormEl: HTMLFormElement | undefined = $state();
 
 	const posted = $derived(data.payment.status === "posted");
+	// Reversal rows are terminal bookkeeping: no applications, no corrections.
+	const isReversalRow = $derived(data.payment.reversalOfId !== null);
+	const showCorrection = $derived(data.resumable && !isReversalRow);
 
 	const reversingApplication = $derived(
 		data.applications.find((application) => application.applicationId === reversingApplicationId) ?? null,
@@ -153,7 +156,7 @@
 		{/if}
 	</section>
 
-	{#if posted && data.unappliedMinor > 0 && data.candidates.length > 0}
+	{#if posted && !isReversalRow && data.unappliedMinor > 0 && data.candidates.length > 0}
 		<section class="space-y-3">
 			<h2 class="text-xl font-bold">Aplicar a gastos</h2>
 			<div class="card border border-[var(--color-border)] bg-base-100 shadow-[var(--shadow-raised)]">
@@ -213,11 +216,16 @@
 		</section>
 	{/if}
 
-	{#if posted}
+	{#if showCorrection}
 		<section class="space-y-3">
 			<h2 class="text-xl font-bold">Corrección</h2>
 			<div class="alert alert-info" role="status">
-				El pago original quedará revertido; sus aplicaciones se desharán y el dinero volverá a la cuenta.
+				{#if $correctForm.mode === "replace"}
+					El pago original quedará revertido; sus aplicaciones se desharán. El importe corregido se cargará de nuevo en
+					la cuenta seleccionada.
+				{:else}
+					El pago original quedará revertido; sus aplicaciones se desharán y el dinero volverá a la cuenta.
+				{/if}
 			</div>
 			<div class="card border border-[var(--color-border)] bg-base-100 shadow-[var(--shadow-raised)]">
 				<div class="card-body gap-4">
@@ -377,7 +385,9 @@
 			oncancel={() => (reversingApplicationId = null)}
 		/>
 	{/if}
+{/if}
 
+{#if showCorrection}
 	<ConfirmationDialog
 		open={confirmingCorrection}
 		title={correctionConfirmation.title}

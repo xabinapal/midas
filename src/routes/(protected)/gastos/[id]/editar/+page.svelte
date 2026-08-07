@@ -27,7 +27,7 @@
 	const initialForm = untrack(() => $form);
 	let memberValuesById = $state<Record<string, string>>(
 		Object.fromEntries(
-			untrack(() => data.members).map((member) => {
+			[...untrack(() => data.members), ...untrack(() => data.storedInactiveMembers)].map((member) => {
 				const initialIndex = initialForm.memberIds.indexOf(member.id);
 				return [member.id, initialForm.memberValues[initialIndex] ?? ""];
 			}),
@@ -256,6 +256,37 @@
 										bind:group={$form.memberIds}
 									/>
 									<span>{member.displayName}</span>
+								</label>
+								{#if needsMemberValues && $form.memberIds.includes(member.id)}
+									<label class="flex items-center gap-2" for={`member-value-${member.id}`}>
+										<span class="text-sm text-[var(--color-text-soft)]">
+											{memberValueLabel} ({member.displayName})
+										</span>
+										<input
+											id={`member-value-${member.id}`}
+											name="memberValues"
+											type="text"
+											inputmode="decimal"
+											placeholder={$form.allocationMethod === "fixed" ? "0,00" : "0"}
+											class="input min-h-12 w-28"
+											bind:value={memberValuesById[member.id]}
+										/>
+									</label>
+								{/if}
+							</div>
+						{/each}
+						{#each data.storedInactiveMembers as member (member.id)}
+							<div class="flex flex-wrap items-center gap-3">
+								<label class="flex min-h-12 flex-1 cursor-pointer items-center gap-3" for={`member-${member.id}`}>
+									<input
+										id={`member-${member.id}`}
+										type="checkbox"
+										name="memberIds"
+										class="checkbox"
+										value={member.id}
+										bind:group={$form.memberIds}
+									/>
+									<span class="text-[var(--color-text-soft)]">{member.displayName} (inactivo)</span>
 								</label>
 								{#if needsMemberValues && $form.memberIds.includes(member.id)}
 									<label class="flex items-center gap-2" for={`member-value-${member.id}`}>

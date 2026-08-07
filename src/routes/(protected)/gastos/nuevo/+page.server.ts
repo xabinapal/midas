@@ -3,7 +3,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { message, setError, superValidate } from "sveltekit-superforms/server";
 import { formatMinorUnits, parseAmountToMinorUnits } from "$lib/accounts/money";
 import { effectiveAtFromDateInput, todayDateInput } from "$lib/accounts/schemas";
-import type { AllocationMemberSelection } from "$lib/expenses/allocation";
+import { selectionFromFormValues } from "$lib/expenses/allocation";
 import { expenseFormSchema } from "$lib/expenses/schemas";
 import { FUNDING_SOURCE_LABELS } from "$lib/expenses/terms";
 import { createAccountServices } from "$lib/server/accounts/services";
@@ -106,21 +106,13 @@ export const actions: Actions = {
 		const defaultWeightByMember = new Map(members.map((member) => [member.id, member.defaultWeight]));
 
 		const method = form.data.allocationMethod;
-		const allocationMembers: AllocationMemberSelection[] = form.data.memberIds.map((memberId, index) => {
-			const raw = form.data.memberValues[index] ?? "";
-			switch (method) {
-				case "custom_weight":
-					return { memberId, weight: Number(raw || 0) };
-				case "percentage":
-					return { memberId, basisPoints: Math.round(Number(raw || 0) * 100) };
-				case "fixed":
-					return { memberId, fixedAmountMinor: parseAmountToMinorUnits(raw || "", currency) ?? -1 };
-				case "default_weight":
-					return { memberId, defaultWeight: defaultWeightByMember.get(memberId) ?? 0 };
-				default:
-					return { memberId };
-			}
-		});
+		const allocationMembers = selectionFromFormValues(
+			method,
+			form.data.memberIds,
+			form.data.memberValues,
+			currency,
+			defaultWeightByMember,
+		);
 
 		const outcome = await withGate(locals.db, householdId, locals.user!.id, async (ctx) => {
 			const now = new Date().toISOString();

@@ -217,4 +217,41 @@ describe("ExpenseDetailPage", () => {
 		expect(screen.queryByRole("button", { name: "Anular" })).toBeNull();
 		expect(screen.queryByRole("link", { name: "Editar" })).toBeNull();
 	});
+
+	it("links to the matched real expense when one is linked", () => {
+		render(ExpenseDetailPage, {
+			params: { id: "exp-1" },
+			data: data({
+				linkedActual: { id: "a-1", reference: "luz/2026-08-2", description: "Factura real", amountMinor: 9100 },
+			}),
+			form: undefined as never,
+		});
+
+		expect(screen.getByText("Factura real")).toBeTruthy();
+		const link = screen.getByRole("link", { name: "Ver gasto real" });
+		expect(link.getAttribute("href")).toContain("/gastos/a-1");
+	});
+
+	it("lists reversed applications with their payment link", () => {
+		render(ExpenseDetailPage, {
+			params: { id: "exp-1" },
+			data: data({
+				reversedApplications: [
+					{
+						applicationId: "app-r1",
+						paymentId: "pay-9",
+						paymentDescription: "Pago revertido colegio",
+						amountMinor: 4000,
+						reversedAt: "2026-08-03T00:00:00.000Z",
+					},
+				],
+			}),
+			form: undefined as never,
+		});
+
+		expect(screen.getByText("Aplicaciones revertidas")).toBeTruthy();
+		expect(screen.getByText("Pago revertido colegio")).toBeTruthy();
+		const paymentLinks = screen.getAllByRole("link", { name: "Ver pago" });
+		expect(paymentLinks.some((link) => link.getAttribute("href")?.includes("/pagos/pay-9"))).toBe(true);
+	});
 });

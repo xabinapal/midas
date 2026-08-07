@@ -4,7 +4,12 @@
 	import { superForm } from "sveltekit-superforms/client";
 	import ConfirmationDialog from "$lib/components/confirmation-dialog.svelte";
 	import { formatMinorUnits, parseAmountToMinorUnits } from "$lib/accounts/money";
-	import { resolveAllocations, selectionFromParams, type AllocationLine } from "$lib/expenses/allocation";
+	import {
+		resolveAllocations,
+		scaleFixedSelections,
+		selectionFromParams,
+		type AllocationLine,
+	} from "$lib/expenses/allocation";
 	import { ALLOCATION_METHOD_LABELS } from "$lib/expenses/terms";
 	import { site } from "$lib/site";
 	import type { PageProps } from "./$types";
@@ -16,7 +21,9 @@
 	let confirming = $state(false);
 	let formEl: HTMLFormElement | undefined = $state();
 
-	const memberNameById = $derived(new Map(data.members.map((member) => [member.id, member.displayName])));
+	const memberNameById = $derived(
+		new Map([...data.members, ...data.storedInactiveMembers].map((member) => [member.id, member.displayName])),
+	);
 	const defaultWeightByMember = $derived(new Map(data.members.map((member) => [member.id, member.defaultWeight])));
 
 	type AllocationPreview = { kind: "idle" } | { kind: "lines"; lines: AllocationLine[] } | { kind: "error" };
@@ -33,11 +40,10 @@
 			if (method === "fixed") {
 				return {
 					kind: "lines",
-					lines: resolveAllocations(
-						"custom_weight",
-						amountMinor,
-						data.allocationParams.map((param) => ({ memberId: param.memberId, weight: param.value ?? 0 })),
-					),
+					lines: scaleFixedSelections(data.allocationParams, amountMinor).map((selection) => ({
+						memberId: selection.memberId,
+						amountMinor: selection.fixedAmountMinor ?? 0,
+					})),
 				};
 			}
 			const selections = selectionFromParams(method, data.allocationParams, defaultWeightByMember);

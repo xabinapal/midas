@@ -117,4 +117,16 @@ describe("ExpensesPage", () => {
 		expect(screen.getByText("Sin gastos")).toBeTruthy();
 		expect(screen.getByText("No hay gastos registrados en este periodo.")).toBeTruthy();
 	});
+
+	it("warns when a recurring template could not generate its expense", () => {
+		render(ExpensesPage, {
+			params: {},
+			data: data({ materializationFailures: [{ description: "Luz", reason: "category_inactive" }] }),
+			form: undefined as never,
+		});
+
+		expect(screen.getByText(/La plantilla «Luz» no pudo generarse: la categoría está desactivada\./)).toBeTruthy();
+		const reviewLink = screen.getByRole("link", { name: "Revisar plantillas" });
+		expect(reviewLink.getAttribute("href")).toContain("/gastos/plantillas");
+	});
 });

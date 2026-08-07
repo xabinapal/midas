@@ -72,6 +72,7 @@ function data(overrides: Partial<PageData> = {}): PageData {
 			{ id: "m-1", householdId: "hh-1", displayName: "Alex", isActive: true, defaultWeight: 1 },
 			{ id: "m-2", householdId: "hh-1", displayName: "Sam", isActive: true, defaultWeight: 1 },
 		],
+		storedInactiveMembers: [],
 		form: superValidated(),
 		...overrides,
 	};

@@ -106,6 +106,7 @@ function data(overrides: Partial<PageData> = {}): PageData {
 		],
 		accounts: [account()],
 		chain: [],
+		resumable: true,
 		applyForm: applyForm(),
 		correctForm: correctForm(),
 		...overrides,
@@ -139,7 +140,12 @@ describe("PaymentDetailPage", () => {
 	it("hides the apply and correction workflows on a reversed payment", () => {
 		render(PaymentDetailPage, {
 			params: { id: "pay-1" },
-			data: data({ payment: payment({ status: "reversed" }), unappliedMinor: 0, candidates: [] }),
+			data: data({
+				payment: payment({ status: "reversed", reversedById: "pay-2" }),
+				unappliedMinor: 0,
+				candidates: [],
+				resumable: false,
+			}),
 			form: undefined as never,
 		});
 
@@ -158,6 +164,7 @@ describe("PaymentDetailPage", () => {
 				unappliedMinor: 0,
 				applications: [],
 				candidates: [],
+				resumable: false,
 			}),
 			form: undefined as never,
 		});

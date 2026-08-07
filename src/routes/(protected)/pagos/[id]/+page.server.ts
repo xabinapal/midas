@@ -66,6 +66,15 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			}));
 	}
 
+	// A reversed payment whose reversal row is not yet visible is a
+	// half-applied correction; the correction form stays available to resume it.
+	const effectivelyReversed = view.payment.reversedById
+		? (await repositories.payments.findVisibleById(view.payment.reversedById)) !== undefined
+		: false;
+	const resumable =
+		view.payment.status === "posted" ||
+		(view.payment.status === "reversed" && !effectivelyReversed && view.payment.reversalOfId === null);
+
 	let chain: { id: string; label: string; amountMinor: number; recordedAt: string }[] = [];
 	if (view.payment.reversalOfId || view.payment.reversedById || view.payment.replacesId) {
 		const originalId = view.payment.reversalOfId ?? view.payment.replacesId;
@@ -73,6 +82,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			originalId ? repositories.payments.findVisibleById(originalId) : undefined,
 			repositories.payments.findReversalOf(view.payment.id),
 			repositories.payments.findReplacement(view.payment.id),
+		]);
+		// Chain rows stay visibility-aware: siblings of a half-applied
+		// correction never surface until their operation completes.
+		const [visibleReversal, visibleReplacement] = await Promise.all([
+			reversal ? repositories.payments.findVisibleById(reversal.id) : undefined,
+			replacement ? repositories.payments.findVisibleById(replacement.id) : undefined,
 		]);
 		chain = [
 			...(original
@@ -85,16 +100,23 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 						},
 					]
 				: []),
-			...(reversal
-				? [{ id: reversal.id, label: "Reversión", amountMinor: reversal.amountMinor, recordedAt: reversal.recordedAt }]
-				: []),
-			...(replacement
+			...(visibleReversal
 				? [
 						{
-							id: replacement.id,
+							id: visibleReversal.id,
+							label: "Reversión",
+							amountMinor: visibleReversal.amountMinor,
+							recordedAt: visibleReversal.recordedAt,
+						},
+					]
+				: []),
+			...(visibleReplacement
+				? [
+						{
+							id: visibleReplacement.id,
 							label: "Sustitución vigente",
-							amountMinor: replacement.amountMinor,
-							recordedAt: replacement.recordedAt,
+							amountMinor: visibleReplacement.amountMinor,
+							recordedAt: visibleReplacement.recordedAt,
 						},
 					]
 				: []),
@@ -111,6 +133,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		candidates,
 		accounts: correctionAccounts,
 		chain,
+		resumable,
 		applyForm: await superValidate(zod4(applicationFormSchema)),
 		correctForm: await superValidate(
 			{
@@ -176,6 +199,10 @@ export const actions: Actions = {
 					return setError(form, "amount", "El importe aplicado debe ser mayor que cero");
 				case "expense_not_posted":
 					return setError(form, "expenseId", "Ese gasto no admite pagos");
+				case "expense_already_satisfied":
+					return setError(form, "expenseId", "Este gasto previsto ya está satisfecho por su gasto real vinculado");
+				case "payment_is_reversal":
+					return message(form, "Una reversión no puede aplicarse a gastos", { status: 400 });
 				case "payment_not_posted":
 					return message(form, "El pago está revertido", { status: 400 });
 				case "payment_not_found":
@@ -199,7 +226,7 @@ export const actions: Actions = {
 
 		// The application must belong to this page's payment; otherwise the
 		// audit event would name the wrong payment as subject.
-		const application = await repositories.applications.findById(applicationId);
+		const application = await repositories.applications.findVisibleById(applicationId);
 		if (!application || application.householdId !== householdId || application.paymentId !== params.id) {
 			return { success: false, reason: "application_not_found" };
 		}
@@ -207,7 +234,10 @@ export const actions: Actions = {
 
 		const outcome = await withGate(locals.db, householdId, locals.user!.id, async (ctx) => {
 			const now = new Date().toISOString();
-			await paymentService.reverseApplication(householdId, applicationId, now, ctx.operationId);
+			const { flipped } = await paymentService.reverseApplication(householdId, applicationId, now, ctx.operationId);
+			// Repeat submissions of an already-reversed application are no-ops
+			// with no duplicate audit event.
+			if (!flipped) return;
 			await insertValidatedActivity(locals.db, {
 				householdId,
 				eventType: "payment_application_reversed",
